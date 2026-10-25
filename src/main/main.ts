@@ -1,7 +1,7 @@
 import path from 'node:path';
 import { appendFileSync, existsSync, writeFileSync } from 'node:fs';
 import { mkdtemp, rm, stat as fsStat } from 'node:fs/promises';
-import { app, BrowserWindow, dialog, protocol, shell } from 'electron';
+import { app, BrowserWindow, dialog, protocol, screen, shell } from 'electron';
 import { execFile } from 'node:child_process';
 import os from 'node:os';
 import { promisify } from 'node:util';
@@ -87,12 +87,31 @@ function isAllowedNavigation(targetUrl: string): boolean {
   return targetUrl.startsWith('file://');
 }
 
+/** 窗口最小尺寸：允许在 1366×768（含 125% 缩放）等较小/高 DPI 屏幕上完整显示。 */
+const WINDOW_MIN_WIDTH = 1024;
+const WINDOW_MIN_HEIGHT = 600;
+const WINDOW_DEFAULT_WIDTH = 1440;
+const WINDOW_DEFAULT_HEIGHT = 900;
+
+/**
+ * 依据主显示器工作区计算初始窗口尺寸：不超出屏幕可用区域，
+ * 避免高 DPI 缩放（125% / 150%）下窗口打开即溢出屏幕造成按钮裁切。
+ */
+function initialWindowSize(): { width: number; height: number } {
+  const workArea = screen.getPrimaryDisplay().workAreaSize;
+  return {
+    width: Math.max(WINDOW_MIN_WIDTH, Math.min(WINDOW_DEFAULT_WIDTH, workArea.width)),
+    height: Math.max(WINDOW_MIN_HEIGHT, Math.min(WINDOW_DEFAULT_HEIGHT, workArea.height)),
+  };
+}
+
 function createWindow(): BrowserWindow {
+  const { width, height } = initialWindowSize();
   const win = new BrowserWindow({
-    width: 1440,
-    height: 900,
-    minWidth: 1100,
-    minHeight: 720,
+    width,
+    height,
+    minWidth: WINDOW_MIN_WIDTH,
+    minHeight: WINDOW_MIN_HEIGHT,
     backgroundColor: '#15171C',
     title: 'CutSpect',
     show: false,

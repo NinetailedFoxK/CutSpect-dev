@@ -1,37 +1,48 @@
-# 拉片台（laipian-tai）
+# 拉片台（laipian-tai / CutSpect）
 
-> **CutSpect / 拉片台 · v0.10.0**  
+> **CutSpect / 拉片台 · v0.10.0**
 > 开源仓库：[github.com/ZevinZhao/CutSpect](https://github.com/ZevinZhao/CutSpect)
+> 许可证：[MIT](LICENSE)
 
 离线桌面拉片（视频分析）应用：一个项目 = 一条视频 + 一条红色分析曲线 + 分段 + 标注。
 
-当前进度：**阶段 A（桌面 / 真实媒体 / 保存与重开）、阶段 B（曲线核心）、阶段 C 主体
-（标注 / 分段 / 项目库 / 自动保存）、阶段 D 大部分（PNG / Markdown 导出、恢复快照、
-素材重定位、缩略图与封面、兼容副本 WebM/VP8/Opus）已实现并实测通过**；
-macOS Apple Silicon `.app` / ZIP / DMG 已构建，FFmpeg 与 ffprobe 已随应用分发。
-**真实窗口指针手势**、**PNG Canvas 光栅化**、**导入策略页自动触发兼容副本**和
-**性能测量**仍待专项验证。
-《继续优化需求文档 v1.1》**P0：时间线视频帧带 + 曲线节点与精确画面帧联动**、
-**P1：快捷键系统 + 速查面板 + 用户自定义**均已实现（324 测试通过；开发构建冒烟包含
-帧带/精确帧/快捷键设置探针）。快捷键可在“快捷键”面板（顶栏入口或 `?`）内点击键位
-后按下新组合改键，冲突即时提示，全局保存于 `userData/settings.json`。
-另已实现**智能识别镜头（硬切检测）**：时间线附近“智能识别镜头”按钮 → 三档灵敏度
-（保守 14 / 标准 10 / 灵敏 8）+ 最短镜头长度 → 后台用内置 FFmpeg `scdet` 检测 → 时间线
-显示候选分割线（可逐条删除）→ “应用结果”才转正式分段并命名「镜头 001…」，可一次撤销；
-检测只写 `cache/shots/`，不改 `project.json`。
-编辑器**右侧栏为常驻固定显示**：属性区在上、列表固定在下（均自行滚动），不再需要手动展开。
-快捷键支持**滚轮手势**：可把「滚轮缩放/平移时间线」绑成 `Alt+滚轮`、`⌃(Ctrl)+滚轮` 等（中键滚动同效），录制时直接滚动滚轮即可。
-详见仓库根目录 `IMPLEMENTATION_STATUS.md`（逐条验收状态与阻塞项）。
+桌面版基于 Electron + React + TypeScript + Electron Forge，采用
+**一套共享源码 ＋ 少量平台适配 ＋ macOS 与 Windows 各自构建产物**，
+不维护两套业务源码，也不长期保留两个平台分支。
 
-规格文档见 `docs/spec/拉片台_MVP开发文档_v1.0.md`（重点第 2、11、12、17 节）。
+---
 
-## 开发环境要求
+## 一、普通用户：下载与安装
+
+前往仓库的 [Releases](https://github.com/ZevinZhao/CutSpect/releases) 页面，按系统选择：
+
+| 系统 | 文件 | 说明 |
+| --- | --- | --- |
+| macOS（Apple Silicon） | `LaipianTai-<版本>-macOS-arm64.dmg` | 打开挂载后把「CutSpect」拖入「应用程序」 |
+| macOS（Apple Silicon） | `LaipianTai-<版本>-macOS-arm64.zip` | 解压后直接运行 |
+| Windows（x64） | `LaipianTai-<版本>-Windows-x64-Setup.exe` | 双击安装，按向导完成 |
+| Windows（x64） | `LaipianTai-<版本>-Windows-x64.zip` | 免安装，解压后运行 `laipian-tai.exe` |
+
+> **签名状态（重要）**
+> - 当前发布包为**未签名测试包**。macOS 正式公开发行需要 Developer ID 签名与公证；
+>   Windows 正式公开发行需要代码签名，否则可能出现 SmartScreen 警告。
+> - 本应用**不会**要求你关闭系统安全功能。若被拦截，请以正规渠道获取签名版本，
+>   不要降低系统安全设置。
+> - 应用完全离线运行，不联网、不上传你的视频。
+
+FFmpeg 与 ffprobe 随安装包分发，用户**无需另行安装**。
+
+---
+
+## 二、开发者：从源码运行
+
+### 环境要求
 
 - Node.js ≥ 22.12（本仓库在 Node 25.5.0 / npm 11.8.0 上验证）
 - macOS 14+ 或 Windows 11 x64
-- 所有依赖版本精确锁定（无 `^`/`latest`），构建可重复
+- 所有依赖版本精确锁定，构建可重复（新增 Windows 打包器后需刷新 `package-lock.json`）
 
-## 安装
+### 安装依赖
 
 Electron 二进制体积较大，国内网络建议走镜像：
 
@@ -41,97 +52,125 @@ ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/ npm install
 
 镜像失败时回退官方源：`npm install`。
 
-## 常用命令
+### 常用命令
 
 | 命令 | 作用 |
 | --- | --- |
 | `npm run dev` | 并行启动 vite dev（127.0.0.1:5173）与 Electron（HMR 开发） |
-| `npm run typecheck` | tsc --noEmit 全量类型检查（node / web / config 三套环境） |
-| `npm test` | vitest 运行单元测试（shared 纯函数与契约冒烟） |
-| `npm run build` | 类型检查 → 编译主进程+打包 preload → vite 构建渲染层 → Forge 打包 |
-| `npm run smoke` | 构建后以 `--smoke` 无头模式启动 Electron，截图并自动退出 |
+| `npm run typecheck` | tsc 全量类型检查（node / web / test / config 四套环境） |
+| `npm test` | vitest 运行单元测试 |
+| `npm run build:main` / `npm run build:renderer` | 分别构建主进程/preload 与渲染层 |
+| `npm run verify` | **提交前自查**：typecheck + 测试 + 构建主进程与渲染层 |
 | `npm run package` | 仅执行 Electron Forge 打包（输出 `out/`） |
-| `npm run make` | Forge 产出 macOS ZIP 与 DMG，并执行本机临时签名 |
+| `npm run make` | 按当前系统产出安装包（macOS 或 Windows） |
+| `npm run make:mac` | 在 macOS 上产出 DMG + ZIP（须在 macOS 执行） |
+| `npm run make:win` | 在 Windows 上产出 Setup.exe + ZIP（须在 Windows 执行） |
+| `npm run icon:ico` | 由 `assets/icon.iconset` 生成 Windows `assets/icon.ico` |
+| `npm run smoke` | 构建后以 `--smoke` 无头模式启动 Electron，截图并自动退出 |
 
 > 构建细节：`sandbox: true` 下沙箱化 preload 无法 `require` 相对路径模块，
 > 因此 `build:main` 在 tsc 之后用 esbuild 把 `src/preload/index.ts`
 > 打成自包含 CommonJS bundle（`dist/preload/index.js`，仅 external `electron`）。
 
-## 目录结构
+---
+
+## 三、跨平台架构（共享源码 + 平台适配）
+
+```text
+src/
+├── shared/      # 主/渲染进程共用：IPC 契约、schema、几何、导出模型、快捷键键位
+├── renderer/    # React 界面（两端同一套页面，无 EditorMac/EditorWindows 分叉）
+├── main/        # Electron 主进程（Node）：窗口/协议/项目服务/ffmpeg 封装
+└── platform/    # 平台适配层（唯一允许按平台分叉的地方）
+    ├── common.ts   # PlatformAdapter 接口 + 平台检测/解析（不依赖 DOM/Node 专有 API）
+    ├── macos.ts    # macOS 实现：⌘ / 访达 / Homebrew 回退目录
+    └── windows.ts  # Windows 实现：Ctrl / 文件资源管理器 / .exe 后缀
+```
+
+- `macos.ts` 与 `windows.ts` **实现同一 `PlatformAdapter` 接口**；业务代码只依赖接口。
+- 平台差异仅覆盖：主修饰键展示、系统文件管理器名称与「在…中显示」文案、
+  可执行文件后缀、开发期 FFmpeg 回退目录。
+- **界面、数据模型、快捷键绑定、导出格式完全共用**。
+- 项目数据中媒体一律保存**相对路径**（如 `media/source.mp4`，统一正斜杠），
+  缓存目录可重新生成，项目可跨平台打开。
+
+### 平台行为对照
+
+| 行为 | macOS | Windows |
+| --- | --- | --- |
+| 主修饰键 | `⌘`（Command） | `Ctrl` |
+| 系统术语 | 「在访达中显示」 | 「在文件资源管理器中显示」 |
+| 内部程序名 / 可执行文件 | CutSpect.app | `laipian-tai`（`laipian-tai.exe`） |
+| 界面显示名 | 「拉片台」（一致） | 「拉片台」（一致） |
+| 安装包 | DMG + ZIP（仅 darwin 产出） | Squirrel Setup.exe + ZIP（仅 win32 产出） |
+
+快捷键在两端的绑定完全共用（`mod` 在 macOS 映射 Command、Windows 映射 Ctrl）；
+`Control + 滚轮` 缩放时间线、`Shift + 滚轮` 横向移动，`Space`/`J K L`/方向键/`Q W E`/
+`R G`/`V`/`1 2 3` 等键位一致。
+
+---
+
+## 四、目录结构
 
 ```text
 ├── index.html                 # 渲染层入口（含 CSP meta）
-├── forge.config.ts            # Electron Forge 打包配置
+├── forge.config.ts            # Electron Forge 打包（平台条件化 makers）
 ├── vite.config.ts             # 渲染层构建（base './'，输出 dist/renderer）
 ├── vitest.config.ts           # 测试配置（node 环境）
-├── tsconfig(.node/.web/.test/.config).json  # 四套互不混用的 TS 环境
-├── docs/spec/                 # 产品规格
-├── src/
-│   ├── main/                  # Electron 主进程（Node 环境）
-│   │   ├── main.ts            # 窗口/安全基线/单实例锁/媒体协议注册/smoke
-│   │   ├── ipc.ts             # IPC handler（来源校验 + zod + 真实服务接线）
-│   │   ├── protocol.ts        # laipian-media: 安全流式协议（Range/206/416）
-│   │   ├── file-selection.ts  # 文件选择令牌注册表（一次性兑换）
-│   │   └── services/          # project-service（含恢复快照/重定位）/ media-service /
-│   │                          # ffmpeg / tasks / recent-store / atomic-write /
-│   │                          # export-service / thumbnail-service /
-│   │                          # compatible-copy-service / errors
-│   ├── preload/index.ts       # contextBridge 窄接口桥（window.laipian）
-│   ├── renderer/              # React 渲染层（DOM 环境）
-│   │   ├── App.tsx            # 页面状态机 + 工作台保存管线
-│   │   ├── pages/             # Home（项目库）/ ImportPage / Editor
-│   │   ├── components/        # VideoCanvas / CurveLayer / Timeline / PlayerBar / 对话框
-│   │   ├── export/            # render-png（Canvas 光栅化）
-│   │   ├── hooks/             # useMediaPlayer / useRecentProjects …
-│   │   └── editor/            # editor-geometry / timeline-math / playhead-store / tools
-│   └── shared/                # 主/渲染进程共享
-│       ├── api-types.ts       # ★ IPC 契约（Result/LaipianApi/ProjectSnapshot…）
-│       ├── schema.ts          # zod 结构契约 + 不变量校验 + 初始快照工厂
-│       ├── geometry.ts        # 曲线几何核心（求值/插值/贝塞尔/局部替换/夹紧）
-│       ├── annotations.ts     # 标注数据操作（唯一性/修改/标题退避）
-│       ├── sections.ts        # 分段数据操作（分割/夹紧/锁定/合并/归属）
-│       ├── export-markdown.ts # Markdown 分析笔记生成（含转义与归属）
-│       ├── export-png.ts      # PNG 导出模型（坐标/刻度/编号/索引）
-│       ├── history.ts         # 内容撤销/重做（快照式，500ms 合并，上限 100）
-│       ├── media-url.ts       # laipian-media: URL 构造（两侧共用）
-│       ├── ipc-channels.ts    # 通道名常量（preload 与 main 共用）
-│       └── time.ts            # 时间格式化/夹紧纯函数
-└── tests/                     # 23 个测试文件（含真实 ffprobe/ffmpeg、保存并发、曲线/标注/分段、导出、恢复与转换）
+├── assets/                    # icon.icns（macOS）/ icon.ico（Windows）同源图标
+├── .github/workflows/         # ci.yml（双系统检查）/ release.yml（双系统发布）
+├── docs/                      # 产品规格
+└── src/                       # shared / renderer / main / platform（见上）
 ```
 
-## IPC 契约
+## 五、IPC 契约
 
 renderer 只通过 `window.laipian`（preload 注入）访问主进程能力，
-全部方法与类型定义在 `src/shared/api-types.ts`（规格 12.4）：
+全部方法与类型定义在 `src/shared/api-types.ts`：
 
-- 统一返回 `Result<T>`（`ok/data` 或 `ok:false/error:{code,message,retryable}`）
+- 统一返回 `Result<T>`（`ok/data` 或 `ok:false/error:{code,message,retryable}`）。
 - 文件选择入口 `dialog.pickVideoFile / pickProjectDir / pickOpenProjectFolder`
-  返回**一次性 opaque 令牌**，真实路径不进入渲染层
-- `projects.*`（listRecent/create/open/openRecent/rename/save/listBackups/
-  restoreBackup/removeRecent/reveal/close）与 `tasks.*`（subscribe/snapshot/cancel）
-  **已接入真实服务**
-- `media.createCompatibleCopy / rebuildThumbnails / probe` 与 `exports.save`
-  均已接入真实服务
+  返回**一次性 opaque 令牌**，真实路径不进入渲染层。
+- `projects.*`、`tasks.*`、`media.*`、`exports.*`、`settings.*` 已接入真实服务。
 
-## 安全基线（规格 12.5）
+## 六、安全基线
 
-- `contextIsolation: true`、`sandbox: true`、`nodeIntegration: false`
-- 阻止远程导航与新窗口；CSP 经 `index.html` meta 设置
-  （`default-src 'self'`；`media-src`/`img-src` 放行 `laipian-media:`）
+- `contextIsolation: true`、`sandbox: true`、`nodeIntegration: false`、`webSecurity: true`。
+- 阻止远程导航与新窗口；CSP 经 `index.html` meta 设置。
 - `laipian-media:` 注册为 standard+stream 协议，URL 只含 `projectId/mediaId/kind`，
-  真实路径登记在 main 侧注册表（未注册 → 403），支持 GET/HEAD + Range
-- 单实例锁 + 项目级 `.lock`（陈旧锁可接管）；preload 不暴露 fs/shell/ipcRenderer 本体
-- IPC 来源白名单（仅本应用渲染层）+ zod 参数校验
+  真实路径登记在 main 侧注册表（未注册 → 403），支持 GET/HEAD + Range。
+- 单实例锁 + 项目级 `.lock`；preload 不暴露 fs/shell/ipcRenderer 本体。
+- IPC 来源白名单（仅本应用渲染层）+ zod 参数校验。
+- 原子保存（同目录临时文件 → fsync → rename），并对 Windows 的
+  `EPERM`/`EACCES`/`EBUSY` 做有限重试。
 
-## 浏览器预览模式
+## 七、持续集成与发布
 
-`npm run dev:renderer` 单独启动 vite 后用浏览器打开
-`http://127.0.0.1:5173` 可预览 UI：页面检测不到 `window.laipian` 时
-显示“浏览器预览模式”横幅且不崩溃。此模式仅供 UI 开发，不是产品功能。
+- **ci.yml**：在 `push` 与 `Pull Request` 上，于 macOS 与 Windows **两个环境**
+  从**同一 commit**分别执行依赖安装、类型检查、测试与构建；任一端失败即视为未完成。
+- **release.yml**：推送 `v*` 标签触发，在 macOS 生成 DMG + ZIP、在 Windows 生成
+  Setup.exe + ZIP，统一上传到**同一个 GitHub Release**，文件名为
+  `LaipianTai-<版本>-<系统>-<架构>.<扩展名>`。
+- 版本号唯一来源是 `package.json`；一个版本只用一个标签（如 `v0.10.0`）。
+- `out/`、DMG、EXE、ZIP 等构建产物**不入库**（见 `.gitignore`）。
 
-## 已知边界
+## 八、浏览器预览模式
 
-- 真实窗口指针手势与 PNG Canvas 光栅化未做自动化验证；导入策略页自动触发兼容副本与性能测量尚未完成
-- macOS Apple Silicon 包含 FFmpeg 6.0 与 ffprobe 4.4.1，不依赖用户另行安装
-- macOS 产物使用本机临时签名，未使用 Developer ID、未公证，不适合作为公开下载发行包
-- Windows x64、macOS x64（Intel）未构建/未验证
+`npm run dev:renderer` 单独启动 vite 后用浏览器打开 `http://127.0.0.1:5173`
+可预览 UI：检测不到 `window.laipian` 时显示“浏览器预览模式”横幅且不崩溃。
+此模式仅供 UI 开发，不是产品功能。
+
+## 九、已知边界
+
+- macOS 正式发行需 Developer ID 签名与公证；Windows 正式发行需代码签名——
+  **本轮均为未签名测试包**。
+- 自动更新（Squirrel feed / Electron autoUpdater）尚未接入。
+- `src/platform/linux.ts` 不存在：Linux 目前仅复用 Windows 适配作为未验证回退。
+- 部分真实设备项（Apple Silicon 之外架构、125%/150% 显示缩放下的像素级观感、
+  真实窗口指针手势与 PNG Canvas 光栅化）仍建议在真机做专项验收。
+
+## 十、参与贡献
+
+- 贡献指南见 [CONTRIBUTING.md](CONTRIBUTING.md)。
+- 安全问题请见 [SECURITY.md](SECURITY.md)（不要用公开 Issue 披露漏洞）。
+- 许可证：[MIT](LICENSE)。

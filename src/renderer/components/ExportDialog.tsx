@@ -30,6 +30,9 @@ import {
 import { estimateExport } from '@shared/export-estimate';
 import { findNode, resolveNodeAt } from '@shared/structure';
 import { Icon } from './Icons';
+import { currentAdapter } from '../../platform/common';
+
+const PLATFORM = currentAdapter();
 
 /**
  * 导出中心对话框（规格 13 重设计）。
@@ -431,11 +434,11 @@ export function ExportDialog(props: ExportDialogProps): React.ReactElement | nul
                 <li key={product.path} className="lp-export-product">
                   <Icon name={product.kind === 'pdf' ? 'file-pdf' : product.kind === 'xlsx' ? 'file-xlsx' : product.kind === 'png' ? 'file-png' : product.kind === 'json' ? 'file-json' : 'file-markdown'} size={16} />
                   <div className="lp-export-product-info">
-                    <span className="lp-export-product-name">{product.path.split('/').pop() ?? product.path}</span>
+                    <span className="lp-export-product-name">{product.path.split(/[\\/]/).pop() ?? product.path}</span>
                     <span className="lp-export-product-meta">{EXPORT_KIND_LABEL[product.kind]} · {formatBytes(product.sizeBytes)}</span>
                   </div>
                   <button type="button" className="lp-export-product-action" onClick={() => openProduct(product)}>打开文件</button>
-                  <button type="button" className="lp-export-product-action" onClick={() => revealProduct(product)}>在文件夹中显示</button>
+                  <button type="button" className="lp-export-product-action" onClick={() => revealProduct(product)}>{PLATFORM.revealLabel}</button>
                 </li>
               ))}
             </ul>

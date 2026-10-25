@@ -23,6 +23,10 @@
     "build": "npm run typecheck && npm run build:main && npm run build:renderer && electron-forge package",
     "package": "electron-forge package",
     "make": "electron-forge make",
+    "make:mac": "npm run build:main && npm run build:renderer && electron-forge make --platform=darwin",
+    "make:win": "npm run build:main && npm run build:renderer && electron-forge make --platform=win32",
+    "verify": "npm run typecheck && npm test && npm run build:main && npm run build:renderer",
+    "icon:ico": "node scripts/build-icon-ico.cjs",
     "smoke": "npm run build:main && npm run build:renderer && cross-env ELECTRON_RUN_AS_NODE= electron . --smoke"
   },
   "dependencies": {
@@ -35,6 +39,7 @@
   "devDependencies": {
     "@electron-forge/cli": "8.0.1",
     "@electron-forge/maker-dmg": "8.0.1",
+    "@electron-forge/maker-squirrel": "8.0.1",
     "@electron-forge/maker-zip": "8.0.1",
     "@electron-forge/shared-types": "8.0.1",
     "@types/archiver": "^8.0.0",

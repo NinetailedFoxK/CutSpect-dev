@@ -1,16 +1,52 @@
+# 依赖与构建产物（绝不提交）
 node_modules/
 dist/
 out/
 build-artifacts/
+dist-artifacts/
 release/
+*.tsbuildinfo
+
+# 缓存与临时文件
+.vite/
+.cache/
+*.tmp
+*.temp
 *.log
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# 操作系统与编辑器
 .DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/
+
+# 本地环境与密钥（签名证书、密码、Token 一律不入库）
+.env
+.env.*
 *.local
-.arts/
-.codeartsdoer/
-码上开演/
-Helper
+*.pem
+*.p12
+*.cer
+*.pfx
+*.key
+*.mobileprovision
+
+# 用户素材与本地项目（真实视频/项目数据不得提交）
 *.mp4
 *.mov
 *.mkv
 *.webm
+*.m4v
+用户项目/
+dev-assets/
+
+# 人工智能协作工具缓存
+.arts/
+.codeartsdoer/
+码上开演/
+Helper
+.merkle-snapshot.json

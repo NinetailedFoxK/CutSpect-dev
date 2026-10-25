@@ -122,9 +122,11 @@
 | 兼容副本的**导入期内自动触发与策略页**（导入时判定 needs-compatible-copy → 提示生成） | **未实现** | — | 通道已真实可用，导入流程未接线（无假按钮） |
 | 后台任务取消 | 已实现（`services/tasks.ts#startTask/cancel`，测试覆盖） | — | 取消转码/缩略图有效 |
 | macOS arm64 打包（I02） | 已实现/已实测 | `forge.config.ts`, `assets/icon.icns` | `.app` / ZIP / DMG；本机临时签名；成品冒烟通过 |
+| Windows 打包（Squirrel Setup.exe + ZIP） | 已配置（`forge.config.ts` + `make:win` + CI），**待真实 Windows 验收** | `forge.config.ts`, `assets/icon.ico`, `.github/workflows/` | 仅 win32 执行 Squirrel；DMG 仅 darwin 执行 |
 | 性能测量（I01） | **未验证** | — | 见第 8 节 |
 
-- 打包：darwin-arm64 `.app`、ZIP、DMG 已构建并实测；Windows 安装器与 macOS Intel 包未构建。
+- 打包：darwin-arm64 `.app`、ZIP、DMG 已构建并实测；Windows x64 的 Setup.exe + ZIP
+  与 macOS x64（Intel）包均**未在真机验证**（Windows 需在真实 Windows 环境由 CI/真机构建验收）。
 
 ## 6. 验收清单（规格 18）状态
 
@@ -149,7 +151,7 @@
 | G05 长片 Range | 部分 | 协议 206/416 已测；真实长片未测 |
 | H01—H03 导出 | 部分已实测 | Markdown 全链路与 PNG 模型/保存服务已实测（`tests/export-markdown.test.ts`、`tests/export-png.test.ts`、`tests/export-service.test.ts`）；**PNG Canvas 光栅化未在窗口内验证** |
 | I01 性能压力 | **未验证** | 未做真实素材性能测量 |
-| I02 无 Node/FFmpeg 环境安装 | macOS arm64 已实测 | FFmpeg / ffprobe 随 `.app` 分发，打包后冒烟通过；其他平台未验证 |
+| I02 无 Node/FFmpeg 环境安装 | macOS arm64 已实测；Windows 待真机验证 | FFmpeg / ffprobe 随 `.app` 分发，打包后冒烟通过；Windows 由 CI 构建后需真机验收 |
 | I03 卸载重装保留项目 | **未验证** | 卸载策略未实测 |
 
 ## 7. 自动化测试覆盖（可复现）
@@ -184,7 +186,9 @@
 
 1. **公开发行签名尚缺外部条件**：macOS arm64 包已完成本机临时签名并通过完整性校验，但没有 Apple Developer ID 证书与公证；不能把它当作面向公众下载的免提示发行包。
 2. **FFmpeg 许可材料需在公开发布前补齐**：macOS arm64 已随包分发 FFmpeg 6.0 与 ffprobe 4.4.1；公开发行前仍需确认对应构建许可、附带声明及源代码提供义务。
-3. **未构建/未验证的平台**：Windows x64 安装器、macOS x64（Intel）——当前机器无环境，**不得记为已验证**。
+3. **未在真机验证的平台**：Windows x64 安装器（Setup.exe）与 macOS x64（Intel）——
+   Windows 打包配置与 GitHub Actions 已就绪，但**必须在真实 Windows 环境构建/验收**，
+   当前**不得记为已验证**。
 4. **真实窗口指针手势未验证（阶段 B/C）**：曲线/节点/控制柄、标注点/标签、分段虚线的渲染与数据操作均有自动化证据；但自由画/拖拽/框选、拖标注、拖分段等 Pointer 手势依赖真实布局与指针，未做 GUI 自动化（需手动或 Playwright 补测）。
 5. **导入期兼容策略页未接线**：兼容副本、缩略图、导出服务已真实实现；导入时自动提示生成兼容副本仍待完成。
 6. **拖入导入未实现**：仅支持系统文件选择器（规格 2.3 拖入路径待补）。

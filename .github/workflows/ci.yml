@@ -1,0 +1,42 @@
+name: ci
+
+# 双系统检查：macOS 与 Windows 从同一 commit 构建，任一端失败即视为未完成。
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    steps:
+      - name: Checkout（两端使用同一 commit）
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # 使用 npm install 而非 npm ci：新增 Windows 打包器后需刷新 package-lock.json。
+      - name: 安装依赖
+        run: npm install --no-audit --no-fund
+
+      - name: 类型检查
+        run: npm run typecheck
+
+      - name: 单元测试
+        run: npm test
+
+      - name: 构建主进程与 preload
+        run: npm run build:main
+
+      - name: 构建渲染层
+        run: npm run build:renderer

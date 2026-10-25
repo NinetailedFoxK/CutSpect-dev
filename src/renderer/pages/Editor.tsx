@@ -30,6 +30,7 @@ import type {
 } from '@shared/api-types';
 import { clamp, clampViewRange, formatTimeMs } from '@shared/time';
 import { formatClockTime } from '../lib/format';
+import { currentAdapter } from '../../platform/common';
 import { commandForEvent, commandForWheel, formatBinding } from '@shared/keymap';
 import type { CommandId } from '@shared/keymap';
 import { createCurveEvaluator, insertNodeWithValue, moveNodes, removeNode, setSegmentOutMode } from '@shared/geometry';
@@ -146,6 +147,9 @@ const SCORE_STATUS_HEIGHT = 26;
 const MIN_SCORE_BODY_HEIGHT = 150;
 /** 谱面视图（sheet）下曲线谱面的默认高度（方案 §8：曲线谱面约 140–180px）。 */
 const SHEET_CANVAS_HEIGHT = 176;
+
+/** 当前平台适配（用于系统术语与键位展示，macOS/Windows 共用同一界面）。 */
+const PLATFORM = currentAdapter();
 
 /** 左侧工具栏分组（第十点：播放头操作 / 曲线绘制 / 状态）。 */
 const TOOLBAR_GROUPS: readonly { title: string; items: readonly CommandId[] }[] = [
@@ -1219,7 +1223,7 @@ export function Editor(props: EditorProps) {
       if (created !== undefined) {
         setSelectedStructureId(created.id);
       }
-      setToolNotice('已拆分层级；⌘Z 撤销。');
+      setToolNotice(`已拆分层级；${PLATFORM.formatBinding('mod+z')} 撤销。`);
     },
     [controller, playheadStore, durationMs, structure, commit],
   );
@@ -1238,7 +1242,7 @@ export function Editor(props: EditorProps) {
       }
       commit({ structure: result.structure });
       setSelectedStructureId(leftId);
-      setToolNotice('已合并相邻结构；⌘Z 撤销。');
+      setToolNotice(`已合并相邻结构；${PLATFORM.formatBinding('mod+z')} 撤销。`);
     },
     [structure, durationMs, commit],
   );
@@ -2164,7 +2168,7 @@ export function Editor(props: EditorProps) {
       return '，/。 移动节点 · 1/2/3 曲线模式 · Delete 删除';
     }
     if (selectedAnnotationId !== null) {
-      return '⇧M 下一条标注 · ⌘⇧M 上一条 · Delete 删除';
+      return `${PLATFORM.formatBinding('shift+m')} 下一条标注 · ${PLATFORM.formatBinding('mod+shift+m')} 上一条 · Delete 删除`;
     }
     if (selectedStructureId !== null) {
       return 'E 在播放头拆分当前层级 · Delete 合并到左侧 · 双击大纲改名';
@@ -2399,7 +2403,7 @@ export function Editor(props: EditorProps) {
             className="lp-topbar-button"
             onClick={() => void window.laipian?.projects.reveal({ projectId: snapshot.id })}
           >
-            在 Finder 中检查目录
+            在{PLATFORM.fileManagerName}中检查目录
           </button>
         </div>
       )}

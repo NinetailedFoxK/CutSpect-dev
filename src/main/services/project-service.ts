@@ -12,6 +12,7 @@ import type {
   Result,
 } from '../../shared/api-types';
 import { buildMediaUrl, playbackMediaUrl } from '../../shared/media-url';
+import { currentAdapter } from '../../platform/common';
 import {
   createInitialSnapshot,
   isSafeProjectRelativePath,
@@ -804,7 +805,7 @@ export function createProjectService(options: ProjectServiceOptions): ProjectSer
         if (code === 'EACCES' || code === 'EPERM') {
           return err(
             'IO_PERMISSION',
-            '没有写入权限，无法保存。请在 Finder 中检查项目文件夹的访问权限后重试。',
+            `没有写入权限，无法保存。请在${currentAdapter().fileManagerName}中检查项目文件夹的访问权限后重试。`,
             true,
           );
         }

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { DEFAULT_KEYMAP, findConflicts, resolveKeymap } from '@shared/keymap';
 import type { CommandId, KeyConflict } from '@shared/keymap';
+import { currentAdapter } from '../../platform/common';
 
 /**
  * 快捷键状态（v1.1 需求 6.3）：默认键位 + 用户覆盖（全局 userData/settings.json）。
@@ -11,7 +12,7 @@ import type { CommandId, KeyConflict } from '@shared/keymap';
  */
 
 export function isMacPlatform(): boolean {
-  return typeof navigator !== 'undefined' && /Mac|iPhone|iPad/i.test(navigator.userAgent);
+  return currentAdapter().isMac;
 }
 
 export interface KeymapController {

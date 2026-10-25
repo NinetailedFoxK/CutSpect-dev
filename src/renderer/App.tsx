@@ -20,6 +20,9 @@ import { TaskCenter } from './components/TaskCenter';
 import { feedbackStore, taskCenterStore } from './feedback/instance';
 import { createSaveCoordinator } from './editor/save-coordinator';
 import type { SaveCoordinator } from './editor/save-coordinator';
+import { currentAdapter } from '../platform/common';
+
+const PLATFORM = currentAdapter();
 
 /**
  * 应用外壳与页面状态机（阶段 A 闭环 + 阶段 B 曲线编辑）。
@@ -95,7 +98,7 @@ function EditorHost({ opened, onExit }: { opened: OpenedProject; onExit: () => v
       onError: (error) => {
         setSaveError(error);
         saveErrorRef.current = error;
-        // 失败即提示（顶栏同时显示），并给出下一步：重试或在 Finder 中检查目录。
+        // 失败即提示（顶栏同时显示），并给出下一步：重试或在系统文件管理器中检查目录。
         if (saveBannerRef.current === null) {
           saveBannerRef.current = feedbackStore.showBanner({
             kind: 'error',
@@ -105,7 +108,7 @@ function EditorHost({ opened, onExit }: { opened: OpenedProject; onExit: () => v
             actions: [
               { label: '重试保存', primary: true, run: () => void flushSave() },
               {
-                label: '在 Finder 中检查目录',
+                label: `在${PLATFORM.fileManagerName}中检查目录`,
                 run: () => void window.laipian?.projects.reveal({ projectId: opened.snapshot.id }),
               },
             ],

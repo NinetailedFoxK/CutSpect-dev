@@ -1,19 +1,48 @@
 import { MakerZIP } from '@electron-forge/maker-zip';
 import { MakerDMG } from '@electron-forge/maker-dmg';
+import { MakerSquirrel } from '@electron-forge/maker-squirrel';
 import type { ForgeConfig } from '@electron-forge/shared-types';
 import { execFile } from 'node:child_process';
+import { existsSync, readFileSync } from 'node:fs';
 import { promisify } from 'node:util';
 import path from 'node:path';
 
 const execFileAsync = promisify(execFile);
 
 /**
- * Electron Forge 打包配置。
+ * Electron Forge 打包配置（macOS 与 Windows 共用同一套共享源码）。
+ *
+ * 平台边界（不复制两套项目，只做打包适配）：
+ * - macOS：DMG + ZIP（MakerDMG 仅在 darwin 生效）。
+ * - Windows：Squirrel Setup.exe + ZIP（MakerSquirrel 仅在 win32 生效）。
+ * - ZIP：两端都产出（MakerZIP 全平台支持）。
  * - asar 内保留应用代码；ffmpeg / ffprobe 可执行文件解包，确保安装后仍能运行。
- * - ignore 排除源码、测试、文档与开发配置，缩小正式应用体积。
- * - 同时产出 ZIP 与 DMG；没有开发者证书时为本机可用的未签名构建。
- * - ELECTRON_ZIP_DIR 仅用于无网络环境复用已校验的本机 Electron 缓存。
+ * - macOS 保留本机临时签名钩子（postPackage），并显式限制只在 darwin 运行。
+ * - 版本号唯一来源是 package.json。图标由 assets/icon 解析（macOS .icns / Windows .ico）。
  */
+
+/** 版本号唯一来源：package.json（构建时从项目根读取，兼容 CJS/ESM 配置加载）。 */
+function readPackageVersion(): string {
+  const candidates = [path.resolve(process.cwd(), 'package.json')];
+  if (typeof __dirname === 'string') {
+    candidates.push(path.resolve(__dirname, 'package.json'));
+  }
+  for (const candidate of candidates) {
+    if (!existsSync(candidate)) {
+      continue;
+    }
+    const parsed = JSON.parse(readFileSync(candidate, 'utf8')) as { version?: unknown };
+    if (typeof parsed.version === 'string' && parsed.version.length > 0) {
+      return parsed.version;
+    }
+  }
+  throw new Error('forge.config.ts：无法从 package.json 读取有效 version 字段。');
+}
+
+const VERSION = readPackageVersion();
+const IS_MAC = process.platform === 'darwin';
+const IS_WINDOWS = process.platform === 'win32';
+
 const config: ForgeConfig = {
   packagerConfig: {
     appBundleId: 'com.cutspec.desktop',
@@ -23,6 +52,9 @@ const config: ForgeConfig = {
       unpack: '**/node_modules/{ffmpeg-static,@ffprobe-installer/**}/**',
     },
     icon: 'assets/icon',
+    // Windows 内部程序名与可执行文件使用稳定英文标识（界面仍显示「拉片台」）。
+    // macOS 保持既有可执行名不变，避免影响既有签名/产物。
+    ...(IS_WINDOWS ? { executableName: 'laipian-tai' } : {}),
     electronZipDir: process.env.ELECTRON_ZIP_DIR,
     ignore: [
       /^\/src($|\/)/,
@@ -30,6 +62,7 @@ const config: ForgeConfig = {
       /^\/docs($|\/)/,
       /^\/\.arts($|\/)/,
       /^\/\.codeartsdoer($|\/)/,
+      /^\/\.github($|\/)/,
       /^\/\.git($|\/)/,
       /^\/index\.html$/,
       /^\/vite\.config\.ts$/,
@@ -37,6 +70,8 @@ const config: ForgeConfig = {
       /^\/forge\.config\.ts$/,
       /^\/tsconfig[^/]*\.json$/,
       /^\/README\.md$/,
+      /^\/CONTRIBUTING\.md$/,
+      /^\/SECURITY\.md$/,
       /^\/\.gitignore$/,
       /^\/package-lock\.json$/,
     ],
@@ -44,6 +79,7 @@ const config: ForgeConfig = {
   rebuildConfig: {},
   hooks: {
     postPackage: async (_forgeConfig, packageResult) => {
+      // 仅 macOS 做本机临时签名；Windows 不执行该钩子（签名交由发布环境处理）。
       if (packageResult.platform !== 'darwin') return;
 
       for (const outputPath of packageResult.outputPaths) {
@@ -59,11 +95,31 @@ const config: ForgeConfig = {
     },
   },
   makers: [
+    // ZIP：macOS 与 Windows 都产出（MakerZIP 全平台支持）。
     new MakerZIP(),
-    new MakerDMG({
-      name: 'CutSpect-0.10.0',
-      format: 'ULFO',
-    }),
+    // DMG：只在 macOS 执行。
+    ...(IS_MAC
+      ? [
+          new MakerDMG({
+            name: `CutSpect-${VERSION}`,
+            format: 'ULFO',
+            icon: 'assets/icon.icns',
+          }),
+        ]
+      : []),
+    // Squirrel Setup.exe：只在 Windows 执行（必须在真实 Windows 环境生成）。
+    ...(IS_WINDOWS
+      ? [
+          new MakerSquirrel({
+            name: 'laipian-tai',
+            setupExe: `LaipianTai-${VERSION}-Setup.exe`,
+            setupIcon: 'assets/icon.ico',
+            authors: 'CutSpect 开发组',
+            description: '离线桌面拉片与视频节奏分析工具',
+            noMsi: true,
+          }),
+        ]
+      : []),
   ],
 };
 

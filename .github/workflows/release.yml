@@ -1,0 +1,123 @@
+name: release
+
+# 推送 v* 标签触发：一个版本一个标签（例如 v0.10.0）。
+# macOS 产出 DMG + ZIP；Windows 产出 Setup.exe + ZIP；统一上传到同一个 GitHub Release。
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  macos:
+    name: build macOS package
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: 安装依赖
+        run: npm install --no-audit --no-fund
+
+      - name: 类型检查 + 测试 + 构建
+        run: npm run verify
+
+      - name: 打包 macOS（DMG + ZIP）
+        run: npm run make:mac
+
+      - name: 收集并规范命名产物
+        shell: bash
+        run: |
+          set -euo pipefail
+          VER=$(node -p "require('./package.json').version")
+          ARCH=$(uname -m)
+          case "$ARCH" in
+            arm64) A=arm64 ;;
+            x86_64) A=x64 ;;
+            *) A="$ARCH" ;;
+          esac
+          mkdir -p dist-artifacts
+          find out/make -name '*.dmg' -exec cp {} "dist-artifacts/LaipianTai-${VER}-macOS-${A}.dmg" \;
+          find out/make -name '*.zip' -exec cp {} "dist-artifacts/LaipianTai-${VER}-macOS-${A}.zip" \;
+          ls -l dist-artifacts
+
+      - name: 上传 macOS 产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-artifacts
+          path: dist-artifacts/*
+          if-no-files-found: error
+
+  windows:
+    name: build Windows package
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: 安装依赖
+        run: npm install --no-audit --no-fund
+
+      - name: 类型检查 + 测试 + 构建
+        run: npm run verify
+
+      - name: 打包 Windows（Setup.exe + ZIP）
+        run: npm run make:win
+
+      - name: 收集并规范命名产物
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $ver = node -p "require('./package.json').version"
+          New-Item -ItemType Directory -Force -Path dist-artifacts | Out-Null
+          $exes = Get-ChildItem -Path out/make -Recurse -File | Where-Object { $_.Extension -eq '.exe' -and $_.Name -like '*Setup*' }
+          if (-not $exes) { $exes = Get-ChildItem -Path out/make -Recurse -File | Where-Object { $_.Extension -eq '.exe' } }
+          $exes | Select-Object -First 1 | ForEach-Object { Copy-Item $_.FullName "dist-artifacts/LaipianTai-$ver-Windows-x64-Setup.exe" -Force }
+          Get-ChildItem -Path out/make -Recurse -File -Filter *.zip | ForEach-Object { Copy-Item $_.FullName "dist-artifacts/LaipianTai-$ver-Windows-x64.zip" -Force }
+          Get-ChildItem dist-artifacts
+
+      - name: 上传 Windows 产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-artifacts
+          path: dist-artifacts/*
+          if-no-files-found: error
+
+  release:
+    name: publish GitHub Release
+    needs: [macos, windows]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: 校验标签与 package.json 版本一致
+        run: |
+          VER=$(node -p "require('./package.json').version")
+          if [ "v${VER}" != "${GITHUB_REF_NAME}" ]; then
+            echo "版本不一致：标签 ${GITHUB_REF_NAME} 与 package.json v${VER} 不匹配。"
+            exit 1
+          fi
+
+      - name: 下载全部产物
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: 创建 Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/**/*
+          generate_release_notes: true

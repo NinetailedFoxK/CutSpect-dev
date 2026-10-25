@@ -9,6 +9,9 @@ import { RenameProjectDialog } from '../components/RenameProjectDialog';
 import type { RecentProjectsController } from '../hooks/useRecentProjects';
 import { feedbackStore } from '../feedback/instance';
 import { Icon } from '../components/Icons';
+import { currentAdapter } from '../../platform/common';
+
+const PLATFORM = currentAdapter();
 
 /**
  * 项目库 HOME（规格 2.1 / 2.2）。
@@ -217,7 +220,7 @@ function ProjectCard({
               onClick={() => onReveal(project)}
             >
               <Icon name="reveal-finder" />
-              <span>在文件管理器中显示</span>
+              <span>{PLATFORM.revealLabel}</span>
             </button>
             {project.status === 'missing' && onRelocate && (
               <button
@@ -343,11 +346,11 @@ export function Home({
     if (!result.ok) {
       feedbackStore.pushToast({
         kind: 'error',
-        message: `无法在文件管理器中显示「${project.name}」：${result.error.message}`,
+        message: `无法在${PLATFORM.fileManagerName}中显示「${project.name}」：${result.error.message}`,
       });
       return;
     }
-    feedbackStore.pushToast({ kind: 'info', message: '已在系统文件管理器中显示项目文件夹。' });
+    feedbackStore.pushToast({ kind: 'info', message: `已在${PLATFORM.fileManagerName}中显示项目文件夹。` });
   };
 
   const removeProject = async (project: ProjectSummary): Promise<void> => {

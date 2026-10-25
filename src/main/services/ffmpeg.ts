@@ -5,6 +5,7 @@ import ffmpegStaticPath from 'ffmpeg-static';
 import ffprobeStatic from '@ffprobe-installer/ffprobe';
 import { err, ok } from '../../shared/api-types';
 import type { FrameRate, Result } from '../../shared/api-types';
+import { currentAdapter } from '../../platform/common';
 import { MediaServiceError } from './errors';
 
 /**
@@ -41,9 +42,8 @@ export interface FfmpegPathResolution {
 const ENV_FFMPEG = 'LAIPIAN_FFMPEG_PATH';
 const ENV_FFPROBE = 'LAIPIAN_FFPROBE_PATH';
 
-/** 开发机常见安装目录（不假设其一定存在于 PATH 中）。 */
-const DEV_FALLBACK_DIRS: readonly string[] =
-  process.platform === 'darwin' ? ['/opt/homebrew/bin', '/usr/local/bin'] : [];
+/** 开发机常见安装目录（按平台适配；不假设其一定存在于 PATH 中）。 */
+const DEV_FALLBACK_DIRS: readonly string[] = currentAdapter().ffmpegFallbackDirs;
 
 /** Electron 主进程才有的全局（vitest / ELECTRON_RUN_AS_NODE 下不存在）。 */
 function electronResourcesPath(): string | null {
@@ -82,7 +82,7 @@ function isExecutable(candidate: string): boolean {
 
 
 function searchDirsFor(dirs: readonly string[], tool: string): string | null {
-  const names = process.platform === 'win32' ? [tool, `${tool}.exe`] : [tool];
+  const names = currentAdapter().executableNames(tool);
   for (const dir of dirs) {
     if (!dir) {
       continue;
