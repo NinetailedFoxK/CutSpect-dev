@@ -1,0 +1,404 @@
+/*
+ * 统一反馈层样式（批次 1）：toast / 错误横幅 / 确认对话框 / 任务中心。
+ * 颜色沿用 styles.css 的 CSS 变量，保持深色主题一致。
+ */
+
+/* ---------------------------- Toast ---------------------------- */
+
+.toast-host {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: min(420px, calc(100vw - 40px));
+}
+
+.toast {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--panel-edge);
+  border-left-width: 3px;
+  border-radius: 8px;
+  background: var(--panel);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  color: var(--text);
+  font-size: 13px;
+  animation: toast-in 160ms ease-out;
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.toast--success {
+  border-left-color: var(--ok-green);
+}
+.toast--error {
+  border-left-color: var(--danger-red);
+}
+.toast--info {
+  border-left-color: var(--text-dim);
+}
+
+.toast-icon {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: #101218;
+}
+.toast--success .toast-icon {
+  background: var(--ok-green);
+}
+.toast--error .toast-icon {
+  background: var(--danger-red);
+  color: #fff;
+}
+.toast--info .toast-icon {
+  background: var(--text-dim);
+}
+
+.toast-body {
+  flex: 1;
+  min-width: 0;
+}
+.toast-message {
+  margin: 0;
+  word-break: break-word;
+}
+.toast-detail {
+  margin: 4px 0 0;
+  color: var(--text-dim);
+  font-size: 12px;
+}
+
+.toast-action {
+  flex: 0 0 auto;
+  align-self: center;
+  padding: 4px 10px;
+  border: 1px solid var(--panel-edge);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--note-yellow);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.toast-action:hover {
+  background: rgba(245, 186, 66, 0.12);
+}
+
+.toast-close {
+  flex: 0 0 auto;
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 4px;
+}
+.toast-close:hover {
+  color: var(--text);
+}
+
+/* -------------------------- 错误横幅 -------------------------- */
+
+.feedback-banner {
+  position: fixed;
+  left: 50%;
+  top: 16px;
+  transform: translateX(-50%);
+  z-index: 55;
+  width: min(560px, calc(100vw - 40px));
+  padding: 14px 16px;
+  border: 1px solid var(--panel-edge);
+  border-radius: 10px;
+  background: var(--panel);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+.feedback-banner--error {
+  border-color: rgba(240, 75, 80, 0.55);
+}
+.feedback-banner--info {
+  border-color: rgba(245, 186, 66, 0.45);
+}
+
+.feedback-banner-main {
+  padding-right: 24px;
+}
+.feedback-banner-title {
+  margin: 0 0 4px;
+  font-size: 14px;
+  font-weight: 600;
+}
+.feedback-banner-message {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 13px;
+}
+
+.feedback-banner-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.feedback-banner-link {
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 12px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.feedback-banner-close {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+.feedback-banner-close:hover {
+  color: var(--text);
+}
+
+.feedback-banner-diagnostics {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+.feedback-banner-diagnostics textarea {
+  flex: 1;
+  min-height: 72px;
+  resize: vertical;
+  border: 1px solid var(--panel-edge);
+  border-radius: 6px;
+  background: #14161b;
+  color: var(--text-dim);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  padding: 8px;
+}
+
+/* ------------------------- 确认对话框 ------------------------- */
+
+.dialog--confirm {
+  max-width: 440px;
+}
+.dialog--danger .dialog-confirm-impact {
+  border-color: rgba(240, 75, 80, 0.45);
+}
+
+.dialog-confirm-message {
+  margin: 0 0 10px;
+}
+.dialog-confirm-impact {
+  margin: 0 0 8px;
+  padding: 8px 10px;
+  border-left: 3px solid var(--panel-edge);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-dim);
+  font-size: 13px;
+}
+.dialog-confirm-impact strong {
+  color: var(--text);
+}
+
+.danger-button {
+  padding: 8px 16px;
+  border: 1px solid var(--danger-red);
+  border-radius: 8px;
+  background: rgba(240, 75, 80, 0.16);
+  color: #ff9a9e;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.danger-button:hover {
+  background: rgba(240, 75, 80, 0.26);
+}
+
+/* -------------------------- 任务中心 -------------------------- */
+
+.task-center {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.task-center-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border: 1px solid var(--panel-edge);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--text);
+  font-size: 13px;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
+}
+.task-center-toggle:hover {
+  border-color: var(--text-dim);
+}
+.task-center-badge {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--curve-red);
+  color: #fff;
+  font-size: 11px;
+  line-height: 18px;
+  text-align: center;
+}
+
+.task-center-panel {
+  width: min(360px, calc(100vw - 40px));
+  max-height: min(60vh, 480px);
+  overflow-y: auto;
+  border: 1px solid var(--panel-edge);
+  border-radius: 10px;
+  background: var(--panel);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+  padding: 12px 14px;
+}
+
+.task-center-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+.task-center-header h2 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+.task-center-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.task-center-clear {
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 12px;
+  cursor: pointer;
+}
+.task-center-clear:hover {
+  color: var(--text);
+}
+.task-center-close {
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.task-center-section {
+  margin: 10px 0 6px;
+  color: var(--text-dim);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.task-center-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.task-row {
+  border: 1px solid var(--panel-edge);
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.02);
+}
+.task-row--failed {
+  border-color: rgba(240, 75, 80, 0.4);
+}
+.task-row-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.task-row-label {
+  font-size: 13px;
+}
+.task-row-status {
+  color: var(--text-dim);
+  font-size: 11px;
+}
+.task-row--succeeded .task-row-status {
+  color: var(--ok-green);
+}
+.task-row--failed .task-row-status {
+  color: var(--danger-red);
+}
+.task-row-progress,
+.task-row-message {
+  margin: 4px 0 0;
+  color: var(--text-dim);
+  font-size: 12px;
+}
+.task-row-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+.task-row-actions .dialog-button-secondary {
+  padding: 4px 10px;
+  font-size: 12px;
+}
+.task-row-dismiss {
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 14px;
+  cursor: pointer;
+}
+.task-row-dismiss:hover {
+  color: var(--text);
+}

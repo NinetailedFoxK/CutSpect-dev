@@ -1,0 +1,101 @@
+/*
+ * 拉片台 · 石墨工作台设计系统（Design Tokens）v1.0
+ *
+ * 唯一颜色/字体/圆角/阴影/尺寸/动效来源。所有页面与组件应引用这里的
+ * 语义变量，不要在业务样式里写死颜色值。
+ *
+ * 颜色语义（严格规定，勿混用）：
+ *   蓝   → 选中 / 焦点 / 主按钮
+ *   红(曲线色) → 分析曲线与错误
+ *   黄   → 用户标注与提醒
+ *   青   → 自动识别 / 候选镜头 / AI 结果
+ *
+ * 引入顺序：在 main.tsx 中最先引入本文件（见 styles/graphite.css 注释）。
+ */
+
+:root {
+  /* ---------------- 基础层级 ---------------- */
+  --g-bg: #0c0e12; /* 应用最底层背景 */
+  --g-workspace: #11141a; /* 主要工作区（时间线总背景） */
+  --g-panel: #171a21; /* 普通面板 */
+  --g-input: #1b1f27; /* 输入框 / 次级区域 */
+  --g-float: #1e222b; /* 悬浮面板 / 菜单 */
+  --g-hover: #242a35; /* 悬停背景 */
+  --g-active: #292f3b; /* 按下背景 */
+  --g-border: #2a303b; /* 普通边框 */
+  --g-border-strong: #394151; /* 强调边框 */
+
+  /* ---------------- 文字层级 ---------------- */
+  --g-text: #f1f3f6; /* 主要文字 */
+  --g-text-1: #c5cad2; /* 普通文字 */
+  --g-text-2: #9da5b2; /* 次要文字 */
+  --g-text-3: #68717e; /* 弱提示文字 */
+  --g-text-disabled: #4c535e; /* 禁用文字 */
+
+  /* ---------------- 功能色 ---------------- */
+  --g-blue: #6e8bff; /* UI 选中蓝 */
+  --g-blue-soft: rgba(110, 139, 255, 0.14); /* UI 选中浅底 */
+  --g-curve: #ff5664; /* 分析曲线红 */
+  --g-note: #ffc247; /* 标注黄 */
+  --g-shot: #4bc4d5; /* 智能镜头青 */
+  --g-ok: #58c894; /* 成功绿 */
+  --g-warn: #e9a23b; /* 警告橙 */
+  --g-err: #f05b67; /* 错误红 */
+  --g-playhead: #f4f6f8; /* 播放头 */
+
+  /* ---------------- 圆角（方案 §4：工作面直接连接，收紧圆角） ---------------- */
+  --g-r-surface: 0px; /* 主工作面 / 视频监视器（0–1px，连续拼接） */
+  --g-r-block: 2px; /* 结构区块（章节/段落/镜头） */
+  --g-r-sm: 3px; /* 小按钮 / 输入框 / 标签 */
+  --g-r-md: 2px; /* 面板 / 次级区块上限 */
+  --g-r-lg: 6px; /* 菜单 / 弹窗 / 浮层 */
+
+  /* ---------------- 阴影（仅菜单/弹窗/浮层） ---------------- */
+  --g-shadow-float: 0 10px 30px rgba(0, 0, 0, 0.36);
+
+  /* ---------------- 字体 ---------------- */
+  --g-font-ui: 'SF Pro Text', -apple-system, BlinkMacSystemFont, 'PingFang SC',
+    'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Arial, sans-serif;
+  --g-font-mono: 'SF Mono', ui-monospace, Menlo, Monaco, 'Roboto Mono', monospace;
+
+  /* ---------------- 字号 ---------------- */
+  --g-fs-title: 15px; /* 页面 / 项目名标题 */
+  --g-fs-panel: 12px; /* 面板标题 */
+  --g-fs-body: 13px; /* 普通界面文字 */
+  --g-fs-btn: 12px; /* 按钮文字 */
+  --g-fs-help: 11px; /* 辅助说明 */
+  --g-fs-time: 14px; /* 时间码 */
+  --g-fs-time-lg: 20px; /* 大时间码 */
+
+  /* ---------------- 布局尺寸 ---------------- */
+  --g-topbar-h: 46px;
+  --g-toolbar-w: 50px;
+  /* 节奏台：左侧镜头索引栏宽度；连读谱工具条与底部状态栏高度（方案 §2 / §8）。 */
+  --g-rail-w: 176px;
+  --g-rail-collapsed-w: 34px;
+  --g-score-toolbar-h: 34px;
+  --g-statusbar-h: 26px;
+  --g-panel-w: 320px;
+  --g-panel-min: 280px;
+  --g-panel-max: 440px;
+  --g-playerbar-h: 40px;
+  --g-timeline-min: 260px;
+  --g-splitter-thickness: 10px; /* 分割线可点击区（视觉 1px） */
+
+  /* ---------------- 动效 ---------------- */
+  --g-t-hover: 100ms;
+  --g-t-select: 110ms;
+  --g-t-float: 140ms;
+  --g-t-panel: 170ms;
+}
+
+/* 时间码统一等宽字体与字距（禁止比例字体导致跳动）。 */
+.g-mono,
+.lp-time-current,
+.lp-time-total,
+.home-card-meta,
+.lp-structure-time,
+.lp-timeline-band-name {
+  font-family: var(--g-font-mono);
+  font-variant-numeric: tabular-nums;
+}

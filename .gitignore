@@ -1,0 +1,16 @@
+node_modules/
+dist/
+out/
+build-artifacts/
+release/
+*.log
+.DS_Store
+*.local
+.arts/
+.codeartsdoer/
+码上开演/
+Helper
+*.mp4
+*.mov
+*.mkv
+*.webm

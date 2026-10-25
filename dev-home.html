@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!--
+      【仅开发预览】项目库 UI 开发脚手架页（A-T5）。
+      - 仅由 vite dev server 直接访问（http://127.0.0.1:5173/dev-home.html）；
+        vite build 的正式入口是 index.html，本文件不进入打包产物。
+      - 挂载 src/renderer/dev/demo-home.tsx（固定假数据 + mock window.laipian）。
+      - 集成阶段完成后删除本文件与 src/renderer/dev/ 目录。
+      - CSP 与 index.html 保持同一安全基线（规格 12.5）。
+    -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: laipian-media:; media-src 'self' blob: laipian-media:; font-src 'self' data:; connect-src 'self' http://127.0.0.1:5173 ws://127.0.0.1:5173; object-src 'none'; base-uri 'none'; form-action 'none'"
+    />
+    <title>拉片台 · 项目库 UI 开发预览（dev）</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/renderer/dev/demo-home.tsx"></script>
+  </body>
+</html>

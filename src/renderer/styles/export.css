@@ -1,0 +1,226 @@
+/*
+ * 导出中心对话框样式（规格 13 重设计）。
+ * 复用石墨工作台 tokens；不写死颜色，与设计系统一致。
+ */
+
+.lp-export-dialog {
+  width: 720px;
+  max-width: min(720px, 92vw);
+  max-height: 86vh;
+  overflow-y: auto;
+  background: var(--g-float);
+  color: var(--g-text);
+  border-radius: var(--g-r-lg);
+  box-shadow: var(--g-shadow-float);
+  padding: 20px 22px 16px;
+}
+
+.lp-export-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.lp-export-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.lp-export-close {
+  background: none;
+  border: none;
+  color: var(--g-text-2);
+  font-size: 16px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: var(--g-r-sm);
+}
+.lp-export-close:hover { background: var(--g-hover); color: var(--g-text); }
+
+.lp-export-lead { color: var(--g-text-2); font-size: 13px; margin: 0 0 14px; }
+
+/* ---- 标准导出：两个大选项 ---- */
+.lp-export-choices { display: flex; gap: 12px; margin-bottom: 16px; }
+.lp-export-choice {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-start;
+  text-align: left;
+  padding: 14px 16px;
+  border: 1px solid var(--g-border);
+  border-radius: var(--g-r-sm);
+  background: var(--g-panel);
+  color: var(--g-text);
+  cursor: pointer;
+}
+.lp-export-choice:hover { border-color: var(--g-border-strong); background: var(--g-hover); }
+.lp-export-choice.is-active { border-color: var(--g-blue); background: var(--g-blue-soft); }
+.lp-export-choice-title { font-size: 15px; font-weight: 600; }
+.lp-export-choice-desc { font-size: 12px; color: var(--g-text-2); line-height: 1.5; }
+
+/* ---- 通用字段 ---- */
+.lp-export-field { margin-bottom: 14px; }
+.lp-export-field-label { display: block; font-size: 12px; color: var(--g-text-2); margin-bottom: 6px; }
+.lp-export-radio-row { display: flex; flex-wrap: wrap; gap: 10px 18px; }
+.lp-export-radio { font-size: 13px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+.lp-export-radio.is-disabled { opacity: 0.45; cursor: not-allowed; }
+.lp-export-time-range { display: flex; gap: 14px; margin-top: 8px; font-size: 12px; color: var(--g-text-2); }
+.lp-export-time-range input { width: 90px; margin-left: 6px; }
+
+.lp-export-section { margin: 4px 0 14px; padding-top: 10px; border-top: 1px solid var(--g-border); }
+.lp-export-section h3 { font-size: 13px; font-weight: 600; margin: 0 0 8px; color: var(--g-text); }
+
+.lp-export-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.lp-export-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  padding: 5px 10px;
+  border: 1px solid var(--g-border);
+  border-radius: var(--g-r-sm);
+  background: var(--g-panel);
+  color: var(--g-text-1);
+  cursor: pointer;
+}
+.lp-export-chip:hover { border-color: var(--g-border-strong); }
+.lp-export-chip.is-on { border-color: var(--g-blue); background: var(--g-blue-soft); color: var(--g-text); }
+.lp-export-chip input { accent-color: var(--g-blue); }
+.lp-export-chip-usage { color: var(--g-text-3); font-size: 11px; }
+
+.lp-export-check { display: flex; align-items: center; gap: 8px; font-size: 13px; margin: 5px 0; cursor: pointer; }
+.lp-export-check input { accent-color: var(--g-blue); }
+
+.lp-export-inline { display: flex; flex-wrap: wrap; gap: 14px; margin: 6px 0; }
+.lp-export-inline label { font-size: 12px; color: var(--g-text-2); display: inline-flex; align-items: center; gap: 6px; }
+.lp-export-inline select,
+.lp-export-inline input {
+  background: var(--g-input);
+  color: var(--g-text);
+  border: 1px solid var(--g-border);
+  border-radius: var(--g-r-sm);
+  padding: 4px 6px;
+  font-size: 12px;
+}
+.lp-export-inline input[type='number'] { width: 96px; }
+
+/* ---- 字段拖拽排序 ---- */
+.lp-export-fields { list-style: none; margin: 0 0 8px; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.lp-export-field-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  border: 1px solid var(--g-border);
+  border-radius: var(--g-r-sm);
+  background: var(--g-panel);
+  font-size: 12px;
+  cursor: grab;
+}
+.lp-export-field-item.is-dragging { opacity: 0.5; border-color: var(--g-blue); }
+.lp-export-drag { color: var(--g-text-3); }
+.lp-export-field-name { flex: 1; }
+.lp-export-field-remove {
+  background: none;
+  border: none;
+  color: var(--g-text-3);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: var(--g-r-sm);
+}
+.lp-export-field-remove:hover { color: var(--g-err); background: var(--g-hover); }
+
+/* ---- 预览与信息 ---- */
+.lp-export-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  font-size: 12px;
+  color: var(--g-text-2);
+  margin: 14px 0 6px;
+  padding: 8px 12px;
+  background: var(--g-input);
+  border-radius: var(--g-r-sm);
+}
+.lp-export-hint { font-size: 11px; color: var(--g-text-3); margin: 6px 0; line-height: 1.5; }
+.lp-export-message { font-size: 12px; color: var(--g-text-1); margin: 6px 0; }
+.lp-export-message.is-error { color: var(--g-err); }
+
+/* ---- 底部动作 ---- */
+.lp-export-actions { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
+.lp-export-actions-spacer { flex: 1; }
+.lp-export-custom-toggle {
+  background: none;
+  border: 1px dashed var(--g-border-strong);
+  color: var(--g-text-2);
+  font-size: 12px;
+  padding: 6px 12px;
+  border-radius: var(--g-r-sm);
+  cursor: pointer;
+}
+.lp-export-custom-toggle:hover { color: var(--g-text); border-color: var(--g-blue); }
+
+/* ---- 进度 / 完成 ---- */
+.lp-export-progress-step { font-size: 13px; color: var(--g-text-1); margin: 12px 0 6px; }
+.lp-export-progress-track {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--g-input);
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+.lp-export-progress-bar {
+  height: 100%;
+  width: 40%;
+  background: var(--g-blue);
+  animation: lp-export-indeterminate 1.2s ease-in-out infinite;
+}
+@keyframes lp-export-indeterminate {
+  0% { margin-left: -40%; }
+  100% { margin-left: 100%; }
+}
+
+.lp-export-products { list-style: none; margin: 10px 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.lp-export-product {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--g-border);
+  border-radius: var(--g-r-sm);
+  background: var(--g-panel);
+}
+.lp-export-product-info { flex: 1; display: flex; flex-direction: column; }
+.lp-export-product-name { font-size: 13px; }
+.lp-export-product-meta { font-size: 11px; color: var(--g-text-3); }
+.lp-export-product-action {
+  background: var(--g-hover);
+  border: 1px solid var(--g-border);
+  color: var(--g-text-1);
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: var(--g-r-sm);
+  cursor: pointer;
+}
+.lp-export-product-action:hover { border-color: var(--g-blue); color: var(--g-text); }
+
+.lp-export-template-list { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.lp-export-template-item { display: flex; align-items: center; gap: 8px; }
+.lp-export-template-apply {
+  flex: 1;
+  text-align: left;
+  background: var(--g-panel);
+  border: 1px solid var(--g-border);
+  color: var(--g-text-1);
+  font-size: 12px;
+  padding: 5px 10px;
+  border-radius: var(--g-r-sm);
+  cursor: pointer;
+}
+.lp-export-template-apply:hover { border-color: var(--g-blue); color: var(--g-text); }
+.lp-export-zip { margin-top: 8px; }

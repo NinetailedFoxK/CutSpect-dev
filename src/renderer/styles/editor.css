@@ -1,0 +1,2539 @@
+/**
+ * 拉片台 · 分析工作台样式（任务 A-T6，规格 14 深色唯一首发主题）。
+ *
+ * 仅含 .lp-* 命名空间，不触碰项目库 styles.css 的 .app-* 规则。
+ * 色板（规格 14）：底色 #15171C / 面板 #20232B / 主文字 #E8EAF0 /
+ * 曲线红 #F04B50 / 标注黄 #F5BA42（红黄为阶段 B 分析层用色）。
+ *
+ * 注意：本文件中出现的 12px 左右留白与 editor-geometry.ts 的
+ * PLOT_PADDING_X 常量对应（时间线与绘图区共同扣除，规格 2.5）。
+ */
+
+.lp-editor {
+
+  /* 颜色统一来自 tokens.css（石墨工作台）；此处仅别名映射。 */
+  --lp-bg: var(--g-bg);
+  --lp-panel: var(--g-panel);
+  --lp-panel-deep: var(--g-workspace);
+  --lp-text: var(--g-text);
+  --lp-text-dim: var(--g-text-2);
+  --lp-border: var(--g-border);
+  --lp-curve-red: var(--g-curve);
+  --lp-note-yellow: var(--g-note);
+  --lp-accent: var(--g-blue);
+  --lp-playhead: var(--g-playhead);
+  --lp-danger: var(--g-err);
+  --lp-success: var(--g-ok);
+  --lp-shot: var(--g-shot);
+  --lp-hover: var(--g-hover);
+  --lp-active: var(--g-active);
+  --lp-float: var(--g-float);
+  --lp-input: var(--g-input);
+
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-width: 0;
+  background: var(--lp-bg);
+  color: var(--lp-text);
+  font-family: var(--g-font-ui);
+  font-size: var(--g-fs-body);
+  line-height: 1.5;
+  user-select: none;
+}
+
+.lp-editor button {
+  font: inherit;
+  color: inherit;
+}
+
+/* ---------------- 顶栏（规格 2.5 / 8.2） ---------------- */
+
+.lp-topbar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 44px;
+  padding: 0 12px;
+  background: var(--lp-panel);
+  border-bottom: 1px solid var(--lp-border);
+}
+
+.lp-topbar-back {
+  flex: none;
+  height: 28px;
+  padding: 0 10px;
+  background: transparent;
+  border: 1px solid var(--lp-border);
+  border-radius: 6px;
+  color: var(--lp-text-dim);
+  cursor: pointer;
+}
+
+.lp-topbar-back:hover {
+  color: var(--lp-text);
+  border-color: var(--lp-text-dim);
+}
+
+.lp-topbar-title {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+}
+
+.lp-project-name {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lp-save-status {
+  flex: none;
+  font-size: 12px;
+  color: var(--lp-text-dim);
+  white-space: nowrap;
+}
+
+.lp-save-status.is-saving {
+  color: var(--lp-accent);
+}
+
+.lp-save-status.is-dirty {
+  color: var(--lp-note-yellow);
+}
+
+.lp-save-status.is-error {
+  color: var(--lp-danger);
+}
+
+.lp-topbar-actions {
+  position: relative;
+  flex: none;
+}
+
+.lp-topbar-button {
+  height: 28px;
+  padding: 0 12px;
+  background: transparent;
+  border: 1px solid var(--lp-border);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.lp-topbar-button:hover,
+.lp-topbar-button.is-active {
+  border-color: var(--lp-accent);
+}
+
+/* 图层设置浮层（规格 4） */
+
+.lp-layers-popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 40;
+  width: 320px;
+  padding: 12px;
+  background: var(--lp-panel);
+  border: 1px solid var(--lp-border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.lp-layer-row {
+  display: grid;
+  grid-template-columns: 96px 1fr 44px;
+  align-items: center;
+  gap: 8px;
+}
+
+.lp-layer-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.lp-layer-value {
+  text-align: right;
+  color: var(--lp-text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.lp-preset-button {
+  height: 28px;
+  background: var(--lp-panel-deep);
+  border: 1px solid var(--lp-border);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.lp-preset-button:hover {
+  border-color: var(--lp-accent);
+}
+
+.lp-layer-hint {
+  margin: 0;
+  font-size: 11px;
+  color: var(--lp-text-dim);
+}
+
+/* ---------------- 主体三栏（规格 2.5） ---------------- */
+
+.lp-body {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+.lp-toolbar {
+  flex: none;
+  width: 48px; /* TOOLBAR_WIDTH（editor-geometry.ts） */
+  padding-top: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  background: var(--lp-panel);
+  border-right: 1px solid var(--lp-border);
+}
+
+.lp-tool-slot {
+  position: relative;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  background: transparent;
+  border: 1px solid var(--lp-border);
+  border-radius: 8px;
+  color: var(--lp-text-dim);
+  opacity: 0.45; /* 禁用态：阶段 B 接工具状态机的集成点 */
+}
+
+.lp-tool-slot svg {
+  fill: currentColor;
+}
+
+.lp-tool-slot-key {
+  font-size: 9px;
+  line-height: 1;
+}
+
+.lp-center {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.lp-panel {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  width: 280px; /* 固定显示：常驻右栏，不再收起 */
+  background: var(--lp-panel);
+  border-left: 1px solid var(--lp-border);
+  overflow: hidden;
+}
+
+/* 属性区：有选中对象时占上半部分，超出可滚动 */
+.lp-panel-attributes {
+  flex: 0 1 auto;
+  max-height: 55%;
+  overflow-y: auto;
+  border-bottom: 1px solid var(--lp-border);
+}
+
+/* 列表区：固定显示，占余下高度 */
+.lp-panel-list {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.lp-props-empty {
+  margin: 0;
+  padding: 14px 12px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--lp-text-dim);
+}
+
+/* 固定显示的列表：占满列表区高度并自行滚动 */
+.lp-props-list {
+  flex: 1;
+  min-height: 0;
+  height: auto;
+}
+
+/* ---------------- 中央画布（规格 2.5 / 3.2 / 4） ---------------- */
+
+.lp-canvas-host {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  background: #0d0e12; /* 隐藏视频后的深灰背景（规格 4）；竖屏两侧同色 */
+}
+
+.lp-canvas-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain; /* 原比例居中，不强制 16:9（规格 2.5） */
+}
+
+.lp-canvas-analysis {
+  position: absolute;
+  left: 0;
+  top: 0;
+  pointer-events: none; /* 网格不参与命中；阶段 B 曲线层另行处理 */
+}
+
+.lp-grid-line {
+  stroke: #3a3f4d;
+  stroke-width: 1;
+  stroke-dasharray: 1 4;
+}
+
+.lp-axis-label {
+  fill: var(--lp-text-dim);
+  font-size: 10px;
+}
+
+.lp-canvas-error {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  max-width: 70%;
+  padding: 12px 16px;
+  background: rgba(21, 23, 28, 0.92);
+  border: 1px solid var(--lp-danger);
+  border-radius: 8px;
+  color: var(--lp-text);
+}
+
+/* 画布播放头（临时编辑手柄层，规格 4：不随分析层透明度变化） */
+
+.lp-playhead-cursor {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 0;
+  border-left: 1px solid var(--lp-playhead);
+  box-shadow: 0 0 4px rgba(232, 234, 240, 0.55);
+  pointer-events: none;
+  will-change: transform;
+}
+
+/* ---------------- 播放条（规格 2.5 / 3.2） ---------------- */
+
+.lp-playerbar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  height: 44px;
+  padding: 0 12px;
+  background: var(--lp-panel);
+  border-top: 1px solid var(--lp-border);
+  border-bottom: 1px solid var(--lp-border);
+}
+
+.lp-play-button {
+  flex: none;
+  width: 32px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--lp-accent);
+  border: none;
+  border-radius: 6px;
+  color: #10131a;
+  cursor: pointer;
+}
+
+.lp-play-button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.lp-play-button svg {
+  fill: currentColor;
+}
+
+.lp-icon-stroke {
+  stroke: currentColor;
+}
+
+.lp-time-display {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.lp-time-current {
+  color: var(--lp-text);
+}
+
+.lp-time-sep,
+.lp-time-total {
+  color: var(--lp-text-dim);
+}
+
+.lp-rate-group {
+  display: flex;
+  gap: 2px;
+}
+
+.lp-rate-button {
+  height: 24px;
+  min-width: 40px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: var(--lp-text-dim);
+  cursor: pointer;
+  font-variant-numeric: tabular-nums;
+}
+
+.lp-rate-button:hover {
+  color: var(--lp-text);
+}
+
+.lp-rate-button.is-active {
+  color: var(--lp-text);
+  background: var(--lp-panel-deep);
+  border-color: var(--lp-accent);
+}
+
+.lp-volume-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.lp-mute-button {
+  width: 28px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid var(--lp-border);
+  border-radius: 6px;
+  color: var(--lp-text-dim);
+  cursor: pointer;
+}
+
+.lp-mute-button:hover {
+  color: var(--lp-text);
+}
+
+.lp-mute-button svg {
+  fill: currentColor;
+}
+
+/* ---------------- 时间线（规格 2.5 / 3.2 / 3.3） ---------------- */
+
+.lp-timeline {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--lp-panel-deep);
+}
+
+.lp-timeline-ruler {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  cursor: crosshair;
+  touch-action: none; /* 拖动 seek 用 Pointer Events（规格 12.3） */
+}
+
+.lp-timeline-ruler:focus-visible {
+  outline: 1px solid var(--lp-accent);
+  outline-offset: -1px;
+}
+
+/* 独立视频画面轨的定位、帧槽与镜头叠加层在 graphite.css 定义；
+   此处仅保留"正在生成画面帧"的加载提示（不放大任何邻近图片）。 */
+.lp-filmstrip-notice {
+  position: absolute;
+  left: 8px;
+  top: 2px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  color: var(--lp-text-dim);
+  background: rgba(13, 14, 18, 0.72);
+  pointer-events: none;
+}
+
+.lp-tick {
+  position: absolute;
+  top: 0;
+  width: 1px;
+  background: #4a5060;
+}
+
+.lp-tick-major {
+  height: 12px;
+}
+
+.lp-tick-minor {
+  height: 6px;
+  background: #3a3f4d;
+}
+
+.lp-tick-label {
+  position: absolute;
+  top: 14px;
+  font-size: 10px;
+  color: var(--lp-text-dim);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+
+/* 时间线播放头（含顶部小把手） */
+
+.lp-playhead-line {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--lp-playhead);
+  box-shadow: 0 0 4px rgba(232, 234, 240, 0.55);
+  pointer-events: none;
+  will-change: transform;
+}
+
+.lp-playhead-cap {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-top-color: var(--lp-playhead);
+}
+
+/* 时间线底部：工具行 + 横向滚动条（规格 3.3） */
+
+.lp-timeline-bottom {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  height: 34px;
+  padding: 0 12px; /* 与 PLOT_PADDING_X 对应 */
+}
+
+.lp-timeline-tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+}
+
+.lp-zoom-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--lp-text-dim);
+  white-space: nowrap;
+}
+
+.lp-tool-button {
+  height: 24px;
+  padding: 0 10px;
+  background: transparent;
+  border: 1px solid var(--lp-border);
+  border-radius: 6px;
+  color: var(--lp-text-dim);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.lp-tool-button:hover {
+  color: var(--lp-text);
+  border-color: var(--lp-text-dim);
+}
+
+.lp-follow-button {
+  color: var(--lp-accent);
+  border-color: var(--lp-accent);
+}
+
+.lp-scrollbar {
+  position: relative;
+  flex: 1;
+  min-width: 60px;
+  height: 10px;
+  border-radius: 5px;
+  background: #12141a;
+  overflow: hidden;
+  cursor: default;
+}
+
+.lp-scrollbar.is-disabled {
+  opacity: 0.4;
+}
+
+.lp-scrollbar-thumb {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  min-width: 24px;
+  border-radius: 5px;
+  background: #4a5060;
+  cursor: grab;
+  touch-action: none;
+}
+
+.lp-scrollbar-thumb:hover {
+  background: #5a6172;
+}
+
+.lp-scrollbar-thumb:active {
+  cursor: grabbing;
+}
+
+/* ---------------- 滑杆统一着色（accent-color，Chromium 原生） ---------------- */
+
+.lp-editor input[type='range'] {
+  accent-color: var(--lp-accent);
+}
+
+.lp-zoom-slider {
+  width: 140px;
+}
+
+.lp-volume-slider {
+  width: 90px;
+}
+
+.lp-layer-slider {
+  width: 100%;
+}
+/* ================= 阶段 B：曲线层（规格 5） ================= */
+
+.lp-curve-layer {
+  position: absolute;
+  overflow: visible;
+  touch-action: none;
+  outline: none;
+}
+
+.lp-curve-svg {
+  position: absolute;
+  left: 0;
+  top: 0;
+  overflow: visible;
+}
+
+.lp-curve-path {
+  fill: none;
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.lp-curve-preview {
+  fill: none;
+  stroke: var(--lp-accent);
+  stroke-width: 1.5;
+  stroke-dasharray: 4 3;
+}
+
+.lp-handle-line {
+  stroke: var(--lp-text-dim);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+
+.lp-handle-point {
+  fill: var(--lp-panel);
+  stroke: var(--lp-accent);
+  stroke-width: 1.4;
+}
+
+.lp-node {
+  fill: #e8eaf0;
+  stroke: #10131a;
+  stroke-width: 1.2;
+  cursor: grab;
+}
+
+.lp-node.is-fixed {
+  fill: #f5ba42;
+}
+
+.lp-node.is-selected {
+  fill: #10131a;
+  stroke: var(--lp-note-yellow);
+  stroke-width: 2.4;
+}
+
+.lp-marquee {
+  fill: rgba(91, 140, 255, 0.16);
+  stroke: var(--lp-accent);
+  stroke-width: 1;
+  stroke-dasharray: 4 3;
+}
+
+.lp-curve-menu {
+  position: absolute;
+  z-index: 50;
+  min-width: 168px;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  background: var(--lp-panel);
+  border: 1px solid var(--lp-border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+
+.lp-curve-menu button {
+  text-align: left;
+  height: 28px;
+  padding: 0 10px;
+  background: transparent;
+  border: none;
+  border-radius: 5px;
+  color: var(--lp-text);
+  cursor: pointer;
+}
+
+.lp-curve-menu button:hover:not(:disabled) {
+  background: var(--lp-panel-deep);
+}
+
+.lp-curve-menu button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.lp-curve-menu button.is-danger {
+  color: var(--lp-danger);
+}
+
+/* ================= 工具栏按钮（启用态） ================= */
+
+.lp-tool-slot {
+  width: 40px;
+  height: 40px;
+}
+
+.lp-tool-slot:not(:disabled) {
+  opacity: 1;
+  cursor: pointer;
+}
+
+.lp-tool-slot:not(:disabled):hover {
+  border-color: var(--lp-text-dim);
+  color: var(--lp-text);
+}
+
+.lp-tool-slot.is-active {
+  border-color: var(--lp-accent);
+  color: var(--lp-accent);
+  background: rgba(91, 140, 255, 0.12);
+}
+
+.lp-tool-slot-label {
+  font-size: 10.5px;
+  line-height: 1.1;
+}
+
+.lp-topbar-button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* ================= 右侧属性面板（规格 5.3 / 2.5） ================= */
+
+.lp-panel.is-open {
+  width: 280px;
+}
+
+.lp-props {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  overflow-y: auto;
+  height: 100%;
+}
+
+.lp-props-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.lp-props-title {
+  font-weight: 600;
+}
+
+.lp-props-label {
+  font-size: 12px;
+  color: var(--lp-text-dim);
+}
+
+.lp-props-row {
+  display: grid;
+  grid-template-columns: 84px 1fr;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--lp-text-dim);
+}
+
+.lp-props-row--stack {
+  grid-template-columns: 1fr;
+}
+
+.lp-props-input {
+  height: 26px;
+  padding: 0 8px;
+  background: var(--lp-panel-deep);
+  border: 1px solid var(--lp-border);
+  border-radius: 6px;
+  color: var(--lp-text);
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+}
+
+.lp-props-input:disabled {
+  opacity: 0.5;
+}
+
+.lp-props-buttons {
+  display: flex;
+  gap: 6px;
+}
+
+.lp-seg-button {
+  flex: 1;
+  height: 26px;
+  background: var(--lp-panel-deep);
+  border: 1px solid var(--lp-border);
+  border-radius: 6px;
+  color: var(--lp-text-dim);
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.lp-seg-button.is-active {
+  color: var(--lp-text);
+  border-color: var(--lp-accent);
+}
+
+.lp-props-danger {
+  height: 28px;
+  background: transparent;
+  border: 1px solid var(--lp-danger);
+  border-radius: 6px;
+  color: var(--lp-danger);
+  cursor: pointer;
+}
+
+.lp-props-danger:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.lp-props-hint {
+  margin: 0;
+  font-size: 11px;
+  color: var(--lp-text-dim);
+}
+
+/* ================= 阶段 C：分段（规格 7） ================= */
+
+.lp-boundary-line {
+  stroke: #8a93a6;
+  stroke-width: 1;
+  stroke-dasharray: 5 4;
+}
+
+.lp-boundary.is-selected .lp-boundary-line {
+  stroke: var(--lp-accent);
+  stroke-width: 1.6;
+}
+
+.lp-boundary.is-locked .lp-boundary-line {
+  stroke: var(--lp-note-yellow);
+}
+
+.lp-boundary-handle {
+  fill: rgba(138, 147, 166, 0.35);
+  stroke: #8a93a6;
+  stroke-width: 1;
+}
+
+.lp-boundary.is-selected .lp-boundary-handle {
+  stroke: var(--lp-accent);
+  fill: rgba(91, 140, 255, 0.35);
+}
+
+.lp-boundary-lock {
+  fill: var(--lp-note-yellow);
+}
+
+.lp-section-name {
+  fill: var(--lp-text-dim);
+  font-size: 11px;
+  pointer-events: none;
+}
+
+.lp-section-name.is-selected {
+  fill: var(--lp-accent);
+  font-weight: 600;
+}
+
+/* ================= 阶段 C：标注（规格 6） ================= */
+
+.lp-annotation-point {
+  fill: var(--lp-note-yellow);
+  stroke: #10131a;
+  stroke-width: 1.2;
+  cursor: pointer;
+}
+
+.lp-annotation.is-selected .lp-annotation-point {
+  stroke: var(--lp-accent);
+  stroke-width: 2.4;
+}
+
+.lp-annotation-label-bg {
+  fill: rgba(21, 23, 28, 0.86);
+  stroke: rgba(245, 186, 66, 0.7);
+  stroke-width: 1;
+}
+
+.lp-annotation.is-selected .lp-annotation-label-bg {
+  stroke: var(--lp-accent);
+}
+
+.lp-annotation-label {
+  fill: var(--lp-note-yellow);
+  font-size: 11px;
+}
+
+.lp-annotation-link {
+  stroke: rgba(245, 186, 66, 0.6);
+  stroke-width: 1;
+}
+
+.lp-layer-notice,
+.lp-editor-notice {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  z-index: 60;
+  max-width: 70%;
+  padding: 8px 12px;
+  background: rgba(32, 35, 43, 0.96);
+  border: 1px solid var(--lp-note-yellow);
+  border-radius: 8px;
+  color: var(--lp-text);
+  font-size: 12px;
+}
+
+.lp-editor-notice {
+  position: relative;
+  left: auto;
+  bottom: auto;
+  margin: 6px 12px 0;
+}
+
+/* ================= 时间线段落条 ================= */
+
+.lp-timeline-band {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: rgba(91, 140, 255, 0.06);
+  border-right: 1px solid rgba(138, 147, 166, 0.25);
+  overflow: hidden;
+}
+
+.lp-timeline-band:nth-child(even) {
+  background: rgba(245, 186, 66, 0.05);
+}
+
+.lp-timeline-band-name {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 1px;
+  padding: 0 4px;
+  font-size: 10px;
+  color: var(--lp-text-dim);
+  white-space: nowrap;
+  text-align: center;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.lp-timeline-boundary {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 0;
+  border-left: 1px dashed #8a93a6;
+  pointer-events: none;
+}
+
+.lp-timeline-boundary.is-locked {
+  border-left-color: var(--lp-note-yellow);
+}
+
+.lp-timeline-boundary.is-edge {
+  border-left-style: solid;
+  border-left-color: #4a5060;
+}
+
+/* ================= 结构轨（章节 / 段落）+ 视频画面轨（graphite.css 定义） =================
+   结构轨只保留两轨；视频画面轨始终显示并占剩余高度。此处不再定义旧的三轨布局。 */
+
+.lp-structure-block {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  margin: 0;
+  padding: 0 4px;
+  box-sizing: border-box;
+  border: 1px solid rgba(138, 147, 166, 0.3);
+  border-radius: 3px;
+  background: rgba(24, 27, 33, 0.85);
+  color: var(--lp-text-dim);
+  font-size: 10px;
+  line-height: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: left;
+  cursor: pointer;
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.lp-structure-block.is-chapter {
+  background: rgba(169, 180, 198, 0.18);
+  border-color: rgba(169, 180, 198, 0.5);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.lp-structure-block.is-section {
+  background: rgba(120, 166, 255, 0.12);
+  border-color: rgba(120, 166, 255, 0.4);
+}
+
+.lp-structure-block.is-shot {
+  background: transparent;
+  border-color: rgba(139, 147, 161, 0.2);
+  border-radius: 2px;
+  color: rgba(139, 147, 161, 0.85);
+  font-size: 9px;
+  justify-content: center;
+}
+
+.lp-structure-block.is-in-chain {
+  border-color: var(--lp-accent);
+}
+
+.lp-structure-block.is-selected {
+  background: rgba(120, 166, 255, 0.4);
+  border-color: #fff;
+  color: #fff;
+}
+
+.lp-structure-block.is-locked {
+  border-style: dashed;
+}
+
+.lp-structure-block-no {
+  flex: none;
+  color: rgba(200, 208, 222, 0.85);
+}
+
+.lp-structure-block-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ================= 结构大纲 / 检查器（规格 4.2 / 4.3） ================= */
+
+.lp-structure-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+}
+
+.lp-structure-outline {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 42vh;
+  overflow: auto;
+}
+
+.lp-structure-search-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 4px 6px;
+  background: var(--lp-panel-deep);
+  border: 1px solid var(--lp-border);
+  border-radius: 5px;
+  color: var(--lp-text);
+  font-size: 12px;
+}
+
+.lp-structure-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: 4px;
+}
+
+.lp-structure-row.is-selected {
+  background: rgba(120, 166, 255, 0.16);
+}
+
+.lp-structure-twisty {
+  flex: none;
+  width: 16px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  color: var(--lp-text-dim);
+  cursor: pointer;
+  font-size: 9px;
+}
+
+.lp-structure-twisty.is-empty {
+  pointer-events: none;
+}
+
+.lp-structure-label {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 3px 4px;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: var(--lp-text);
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.lp-structure-label:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.lp-structure-no {
+  flex: none;
+  min-width: 34px;
+  color: var(--lp-text-dim);
+  font-size: 10px;
+}
+
+.lp-structure-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lp-structure-lock {
+  flex: none;
+  font-size: 10px;
+}
+
+.lp-structure-time {
+  flex: none;
+  color: var(--lp-text-dim);
+  font-size: 10px;
+}
+
+.lp-structure-rename {
+  flex: 1;
+  padding: 2px 4px;
+  background: var(--lp-panel-deep);
+  border: 1px solid var(--lp-accent);
+  border-radius: 4px;
+  color: var(--lp-text);
+  font-size: 12px;
+}
+
+.lp-structure-inspector {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow: auto;
+}
+
+.lp-structure-breadcrumb {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  font-size: 11px;
+  color: var(--lp-text-dim);
+}
+
+.lp-structure-crumb {
+  padding: 0;
+  background: transparent;
+  border: none;
+  color: var(--lp-accent);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.lp-structure-crumb.is-current {
+  color: var(--lp-text);
+  font-weight: 600;
+}
+
+.lp-structure-crumb-sep {
+  color: var(--lp-text-dim);
+}
+
+.lp-structure-heading {
+  margin: 0;
+  font-size: 12px;
+  color: var(--lp-text);
+}
+
+.lp-structure-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 11px;
+  color: var(--lp-text-dim);
+}
+
+.lp-structure-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.lp-structure-panel .lp-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.lp-structure-panel .lp-field-label {
+  font-size: 11px;
+  color: var(--lp-text-dim);
+}
+
+.lp-structure-panel .lp-field-input,
+.lp-structure-panel .lp-field-textarea {
+  padding: 4px 6px;
+  background: var(--lp-panel-deep);
+  border: 1px solid var(--lp-border);
+  border-radius: 5px;
+  color: var(--lp-text);
+  font-size: 12px;
+}
+
+.lp-structure-panel .lp-field-inline {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--lp-text);
+}
+
+
+/* ================= 右侧节点面板「对应画面」（规格 5.3） ================= */
+
+.lp-frame-panel-media {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  padding: 0;
+  border: 1px solid var(--lp-border);
+  border-radius: 6px;
+  background: #0d0e12;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.lp-frame-panel-media:disabled {
+  cursor: default;
+}
+
+.lp-frame-panel-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.lp-frame-panel-skeleton {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, #14161b, #1b1e25, #14161b);
+  background-size: 200% 100%;
+  animation: lp-frame-skeleton 1.2s ease-in-out infinite;
+}
+
+.lp-frame-panel-failed {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  font-size: 11px;
+  color: var(--lp-text-dim);
+}
+
+.lp-frame-panel-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--lp-text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.lp-frame-panel-time { color: var(--lp-text); }
+.lp-frame-panel-value { color: #ff5a5a; }
+.lp-frame-panel-no { margin-left: auto; }
+
+/* ================= 属性/列表面板补充 ================= */
+
+.lp-props-textarea {
+  min-height: 64px;
+  padding: 6px 8px;
+  background: var(--lp-panel-deep);
+  border: 1px solid var(--lp-border);
+  border-radius: 6px;
+  color: var(--lp-text);
+  font: inherit;
+  resize: vertical;
+}
+
+.lp-props-error {
+  margin: 0;
+  font-size: 11px;
+  color: var(--lp-danger);
+}
+
+.lp-props-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.lp-props-close {
+  width: 22px;
+  height: 22px;
+  background: transparent;
+  border: 1px solid var(--lp-border);
+  border-radius: 5px;
+  color: var(--lp-text-dim);
+  cursor: pointer;
+}
+
+.lp-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.lp-list-item {
+  width: 100%;
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  padding: 4px 6px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: var(--lp-text);
+  cursor: pointer;
+  text-align: left;
+}
+
+.lp-list-item:hover {
+  background: var(--lp-panel-deep);
+  border-color: var(--lp-border);
+}
+
+.lp-list-time {
+  flex: none;
+  font-size: 11px;
+  color: var(--lp-text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.lp-list-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lp-tool-action {
+  width: 44px;
+  min-height: 30px;
+  padding: 4px 2px;
+  background: transparent;
+  border: 1px solid var(--lp-border);
+  border-radius: 6px;
+  color: var(--lp-text-dim);
+  cursor: pointer;
+  font-size: 10px;
+  line-height: 1.1;
+}
+
+.lp-tool-action:not(:disabled):hover {
+  color: var(--lp-text);
+  border-color: var(--lp-text-dim);
+}
+
+.lp-tool-action:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* ================= 导出菜单（规格 13） ================= */
+
+.lp-export-popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 40;
+  min-width: 240px;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  background: var(--lp-panel);
+  border: 1px solid var(--lp-border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+
+.lp-menu-button {
+  text-align: left;
+  height: 30px;
+  padding: 0 10px;
+  background: transparent;
+  border: none;
+  border-radius: 5px;
+  color: var(--lp-text);
+  cursor: pointer;
+}
+
+.lp-menu-button:hover {
+  background: var(--lp-panel-deep);
+}
+
+/* ================= 恢复快照提示（规格 8.4） ================= */
+
+.lp-recovery-banner {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  background: rgba(245, 186, 66, 0.12);
+  border-bottom: 1px solid var(--lp-note-yellow);
+  color: var(--lp-text);
+  font-size: 12.5px;
+}
+
+.lp-recovery-banner span {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ================================================================== */
+/* 工作台视觉精修                                                       */
+/* ================================================================== */
+
+.lp-editor {
+  --lp-bg: #090a0d;
+  --lp-panel: #13151a;
+  --lp-panel-deep: #0e1014;
+  --lp-text: #f0f1f4;
+  --lp-text-dim: #858b98;
+  --lp-border: rgba(255, 255, 255, 0.085);
+  --lp-curve-red: #ff4d5d;
+  --lp-note-yellow: #f2b94b;
+  --lp-accent: #888fff;
+  --lp-playhead: #f7f7f8;
+  --lp-danger: #ff6675;
+  background:
+    radial-gradient(760px 420px at 50% -180px, rgba(136, 143, 255, 0.065), transparent),
+    var(--lp-bg);
+  letter-spacing: -0.004em;
+}
+
+.lp-topbar {
+  height: 52px;
+  gap: 8px;
+  padding: 0 14px;
+  background: rgba(19, 21, 26, 0.92);
+  border-bottom-color: rgba(255, 255, 255, 0.065);
+  backdrop-filter: blur(20px) saturate(120%);
+}
+
+.lp-topbar-back,
+.lp-topbar-button {
+  height: 30px;
+  border-color: transparent;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.035);
+  color: #c2c6cf;
+}
+
+.lp-topbar-back:hover,
+.lp-topbar-button:hover,
+.lp-topbar-button.is-active {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.065);
+}
+
+.lp-project-name {
+  font-size: 13.5px;
+  font-weight: 610;
+  letter-spacing: -0.01em;
+}
+
+.lp-save-status {
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.035);
+  font-size: 10.5px;
+}
+
+.lp-toolbar {
+  width: 58px;
+  padding: 10px 7px;
+  gap: 6px;
+  background: rgba(16, 18, 23, 0.92);
+  border-right-color: rgba(255, 255, 255, 0.065);
+}
+
+.lp-tool-slot {
+  width: 42px;
+  height: 42px;
+  border-color: transparent;
+  border-radius: 10px;
+  background: transparent;
+}
+
+.lp-tool-slot:not(:disabled):hover {
+  border-color: rgba(255, 255, 255, 0.075);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.lp-tool-slot.is-active {
+  border-color: rgba(136, 143, 255, 0.28);
+  color: #aeb3ff;
+  background: rgba(136, 143, 255, 0.12);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.lp-tool-slot-key {
+  opacity: 0.62;
+}
+
+.lp-canvas-host {
+  margin: 10px 10px 0;
+  border: 1px solid rgba(255, 255, 255, 0.065);
+  border-radius: 12px;
+  background:
+    radial-gradient(circle at 50% 50%, #14161b 0%, #0b0c0f 70%);
+  box-shadow:
+    0 20px 50px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.025);
+}
+
+.lp-canvas-video {
+  border-radius: 11px;
+}
+
+.lp-grid-line {
+  stroke: rgba(255, 255, 255, 0.09);
+  stroke-dasharray: 2 7;
+}
+
+.lp-curve-path {
+  stroke-width: 2.75;
+  filter: drop-shadow(0 2px 6px rgba(255, 77, 93, 0.22));
+}
+
+.lp-node {
+  fill: #f5f6f7;
+  stroke: #0a0b0e;
+  stroke-width: 1.5;
+  filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.45));
+}
+
+.lp-playerbar {
+  height: 48px;
+  padding: 0 16px;
+  border: 0;
+  background: transparent;
+}
+
+.lp-play-button {
+  width: 34px;
+  height: 32px;
+  border-radius: 10px;
+  color: #fff;
+  background: linear-gradient(180deg, #9197ff, #676fe3);
+  box-shadow: 0 8px 20px rgba(103, 111, 227, 0.2);
+}
+
+.lp-rate-group {
+  padding: 2px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.lp-rate-button.is-active {
+  border-color: transparent;
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.lp-mute-button,
+.lp-tool-button,
+.lp-preset-button,
+.lp-seg-button,
+.lp-tool-action,
+.lp-props-close {
+  border-color: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.lp-timeline {
+  margin: 0 10px 10px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.065);
+  border-radius: 12px;
+  background: #0d0f13;
+}
+
+.lp-timeline-body {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.018), transparent 36%),
+    #0f1115;
+}
+
+.lp-timeline-bottom {
+  border-top: 1px solid rgba(255, 255, 255, 0.055);
+  background: #111318;
+}
+
+.lp-scrollbar {
+  height: 6px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.lp-scrollbar-thumb {
+  background: #3d424e;
+}
+
+.lp-panel {
+  background: #121419;
+  border-left-color: rgba(255, 255, 255, 0.065);
+  transition: width 0.18s ease;
+}
+
+.lp-panel.is-open {
+  width: 294px;
+}
+
+.lp-props {
+  padding: 16px;
+  gap: 18px;
+}
+
+.lp-props-section + .lp-props-section {
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.065);
+}
+
+.lp-props-title {
+  font-size: 13px;
+  font-weight: 620;
+}
+
+.lp-props-input,
+.lp-props-textarea {
+  border-color: rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  background: #0b0d10;
+}
+
+.lp-layers-popover,
+.lp-export-popover,
+.lp-curve-menu {
+  border-color: rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  background: rgba(22, 24, 30, 0.98);
+  box-shadow: 0 22px 56px rgba(0, 0, 0, 0.52);
+  backdrop-filter: blur(20px);
+}
+
+.lp-layers-popover {
+  padding: 14px;
+}
+
+.lp-annotation-label-bg {
+  fill: rgba(11, 12, 15, 0.9);
+  stroke: rgba(242, 185, 75, 0.62);
+}
+
+.lp-recovery-banner,
+.lp-editor-notice,
+.lp-layer-notice {
+  border-color: rgba(242, 185, 75, 0.45);
+  background: rgba(35, 30, 19, 0.94);
+}
+/* ================= 快捷键速查面板（v1.1 需求 6.3） ================= */
+
+.lp-shortcut-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(9, 10, 14, 0.62);
+}
+
+.lp-shortcut-panel {
+  display: flex;
+  flex-direction: column;
+  width: min(780px, calc(100vw - 48px));
+  max-height: min(82vh, 760px);
+  overflow: hidden;
+  background: var(--lp-panel);
+  border: 1px solid var(--lp-border);
+  border-radius: 10px;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.5);
+}
+
+.lp-shortcut-header {
+  padding: 16px 20px 8px;
+}
+
+.lp-shortcut-header h2 {
+  margin: 0;
+  font-size: 15px;
+  color: var(--lp-text);
+}
+
+.lp-shortcut-hint {
+  margin: 6px 0 0;
+  font-size: 11px;
+  color: var(--lp-text-dim);
+}
+
+.lp-shortcut-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 8px 20px 12px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 28px;
+  align-content: start;
+}
+
+.lp-shortcut-section h3 {
+  margin: 10px 0 6px;
+  font-size: 12px;
+  color: var(--lp-text-dim);
+}
+
+.lp-shortcut-section ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lp-shortcut-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+  font-size: 12px;
+}
+
+.lp-shortcut-label {
+  flex: 1;
+  overflow: hidden;
+  color: var(--lp-text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lp-shortcut-key {
+  min-width: 88px;
+  padding: 3px 10px;
+  border: 1px solid var(--lp-border);
+  border-radius: 6px;
+  background: var(--lp-panel-deep);
+  color: var(--lp-text);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+.lp-shortcut-key:hover {
+  border-color: var(--lp-accent);
+}
+
+.lp-shortcut-key.is-recording {
+  border-color: var(--lp-accent);
+  color: var(--lp-accent);
+}
+
+.lp-shortcut-row.is-conflict .lp-shortcut-key {
+  border-color: #f04b50;
+  color: #f04b50;
+}
+
+.lp-shortcut-reset {
+  padding: 3px 8px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--lp-text-dim);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.lp-shortcut-reset:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.lp-shortcut-reset:not(:disabled):hover {
+  border-color: var(--lp-border);
+  color: var(--lp-text);
+}
+
+.lp-shortcut-footer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 20px;
+  border-top: 1px solid var(--lp-border);
+}
+
+.lp-shortcut-message {
+  flex: 1;
+  font-size: 11px;
+  color: var(--lp-text-dim);
+}
+
+.lp-shortcut-action {
+  padding: 5px 12px;
+  border: 1px solid var(--lp-border);
+  border-radius: 6px;
+  background: var(--lp-panel-deep);
+  color: var(--lp-text);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.lp-shortcut-action.is-primary {
+  border-color: var(--lp-accent);
+}
+/* ================= 智能镜头识别（硬切检测） ================= */
+
+.lp-shot-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 0 6px 12px;
+}
+
+.lp-shot-menu {
+  position: relative;
+}
+
+.lp-shot-count {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(91, 214, 200, 0.16);
+  color: #5bd6c8;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.lp-shot-panel {
+  position: absolute;
+  left: 0;
+  top: calc(100% + 6px);
+  z-index: 20;
+  width: 292px;
+  padding: 12px 14px;
+  background: var(--lp-panel);
+  border: 1px solid var(--lp-border);
+  border-radius: 8px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+}
+
+.lp-shot-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.lp-shot-label {
+  width: 64px;
+  font-size: 12px;
+  color: var(--lp-text-dim);
+}
+
+.lp-shot-presets {
+  display: flex;
+  gap: 6px;
+}
+
+.lp-shot-preset {
+  padding: 3px 10px;
+  border: 1px solid var(--lp-border);
+  border-radius: 6px;
+  background: var(--lp-panel-deep);
+  color: var(--lp-text);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.lp-shot-preset.is-active {
+  border-color: #5bd6c8;
+  color: #5bd6c8;
+}
+
+.lp-shot-input {
+  width: 64px;
+  padding: 3px 8px;
+  border: 1px solid var(--lp-border);
+  border-radius: 6px;
+  background: var(--lp-panel-deep);
+  color: var(--lp-text);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.lp-shot-unit {
+  font-size: 11px;
+  color: var(--lp-text-dim);
+}
+
+.lp-shot-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.lp-shot-action {
+  padding: 4px 10px;
+  border: 1px solid var(--lp-border);
+  border-radius: 6px;
+  background: var(--lp-panel-deep);
+  color: var(--lp-text);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.lp-shot-action:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.lp-shot-action.is-primary {
+  border-color: #5bd6c8;
+  color: #5bd6c8;
+}
+
+.lp-shot-status {
+  margin: 8px 0 0;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--lp-text-dim);
+}
+
+/* 候选分割线（与正式分段不同色，可点击删除） */
+.lp-timeline-candidate {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 3;
+  width: 0;
+  padding: 0;
+  border: none;
+  border-left: 2px dashed #5bd6c8;
+  background: transparent;
+  cursor: pointer;
+}
+
+.lp-timeline-candidate-dot {
+  position: absolute;
+  top: 0;
+  left: -5px;
+  width: 10px;
+  height: 10px;
+  border: 2px solid #0d0e12;
+  border-radius: 50%;
+  background: #5bd6c8;
+}
+
+.lp-timeline-candidate:hover {
+  border-left-color: #ff6b6b;
+}
+
+.lp-timeline-candidate:hover .lp-timeline-candidate-dot {
+  background: #ff6b6b;
+}
+
+/* ---------------- 批次 2：加载态 / 保存信任 / 播放头抓手 ---------------- */
+
+/* 画布加载与素材缺失覆盖层（规格 3：不出现黑屏无说明；规格 13：给出下一步）。 */
+.lp-canvas-status {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  text-align: center;
+  background: rgba(11, 12, 15, 0.9);
+  color: var(--lp-text-dim);
+}
+.lp-canvas-status-title {
+  margin: 0;
+  color: var(--lp-text);
+  font-size: 15px;
+  font-weight: 600;
+}
+.lp-canvas-status-hint {
+  margin: 0;
+  font-size: 12.5px;
+  max-width: 420px;
+}
+.lp-canvas-missing .lp-canvas-status-title {
+  color: var(--lp-note-yellow);
+}
+.lp-canvas-status-spinner {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, 0.16);
+  border-top-color: var(--lp-accent);
+  animation: lp-spin 0.8s linear infinite;
+}
+@keyframes lp-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 视频未就绪时隐藏时间线播放头：避免"竖线已动、画面未到"（规格 3）。 */
+.lp-timeline.is-media-loading .lp-playhead-line,
+.lp-timeline.is-media-loading .lp-playhead-cap {
+  opacity: 0;
+}
+
+/* 播放头抓手：时间线可拖动提示 + 更醒目的实体抓手。 */
+.lp-timeline-ruler {
+  cursor: ew-resize;
+}
+.lp-playhead-cap {
+  width: 12px;
+  height: 12px;
+  border: 2px solid #0d0e12;
+  border-radius: 3px;
+  background: var(--lp-playhead);
+  border-top-color: #0d0e12;
+}
+
+/* 保存信任（规格 10）：顶栏"保存失败 + 重试"与内联错误条。 */
+.lp-save-status.is-error {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--lp-danger);
+}
+.lp-save-status.is-saved {
+  color: #58c98a;
+}
+.lp-save-retry {
+  padding: 1px 8px;
+  border: 1px solid var(--lp-danger);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--lp-danger);
+  font-size: 11px;
+  cursor: pointer;
+}
+.lp-save-retry:hover {
+  background: rgba(240, 75, 80, 0.16);
+}
+.lp-save-error {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 8px 16px;
+  border-bottom: 1px solid rgba(240, 75, 80, 0.4);
+  background: rgba(240, 75, 80, 0.12);
+  color: #ffb0b3;
+  font-size: 13px;
+}
+
+/* 批次 2：曲线悬停高亮与拖动约束反馈（规格 5.1）。 */
+.lp-node.is-hover {
+  stroke: #ffffff;
+  stroke-width: 2.2;
+}
+.lp-node.is-selected.is-constrained {
+  stroke: #f5ba42;
+  stroke-width: 2.2;
+}
+.lp-annotation.is-hover .lp-annotation-point {
+  stroke: #ffffff;
+  stroke-width: 2;
+}
+.lp-boundary.is-hover .lp-boundary-line {
+  stroke: #ffffff;
+  stroke-width: 2;
+}
+/* ================= 工具栏三组（第十点）与底部状态提示（第十一点） ================= */
+
+.lp-tool-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.lp-tool-group-title {
+  padding: 4px 0 2px;
+  font-size: 9.5px;
+  line-height: 1.2;
+  color: var(--lp-text-dim);
+  text-align: center;
+  letter-spacing: 0.02em;
+}
+
+.lp-hint-bar {
+  padding: 6px 12px;
+  font-size: 11.5px;
+  color: var(--lp-text-dim);
+  background: rgba(16, 18, 23, 0.92);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* ==================================================================== */
+/* 分析监视器 v2（第一阶段：专业调色台）                                    */
+/* 追加于末尾，按层叠顺序统一 监视器 / 网格 / 曲线 / 节点 / 控制柄 / 标注 / 分段。 */
+/* ==================================================================== */
+
+/* —— 监视器 Matte：近黑背景 + 1px 低对比边框，不做大圆角/阴影 —— */
+.lp-canvas-host {
+  background: #0b0c0f;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 6px;
+}
+
+/* —— 网格：只辅助判断高度，不抢画面 —— */
+.lp-grid-line {
+  stroke: rgba(255, 255, 255, 0.08);
+  stroke-width: 1;
+}
+.lp-axis-label {
+  fill: var(--lp-text-dim);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* —— 曲线：主线 + 轻辅助光晕；状态区分不改主线颜色 —— */
+.lp-curve-halo {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.lp-curve-path {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* —— 节点：深色中心 + 曲线色描边；状态清楚优先 —— */
+.lp-node-mark {
+  fill: #12141a;
+  stroke: var(--lp-node-color, #ff4d5a);
+  stroke-width: var(--lp-node-stroke, 2);
+}
+.lp-node.is-ring .lp-node-mark {
+  fill: none;
+}
+.lp-node.is-hover .lp-node-mark {
+  fill: #1c1f27;
+}
+.lp-node.is-selected .lp-node-mark {
+  fill: #ffffff;
+}
+.lp-node.is-locked .lp-node-mark {
+  opacity: 0.5;
+}
+.lp-node.is-locked {
+  cursor: not-allowed;
+}
+.lp-node-ring {
+  fill: none;
+  stroke: var(--lp-accent);
+  stroke-width: 1.6;
+  opacity: 0.85;
+}
+.lp-node.is-hover .lp-node-ring {
+  stroke: rgba(255, 255, 255, 0.6);
+}
+
+/* —— 贝塞尔控制柄：克制（渲染层已限制为仅与选中节点相关） —— */
+.lp-handle-line {
+  stroke: rgba(255, 255, 255, 0.5);
+  stroke-width: 1;
+}
+.lp-handle-point {
+  fill: #0b0c0f;
+  stroke: rgba(255, 255, 255, 0.7);
+  stroke-width: 1.5;
+}
+
+/* —— 标注：黄色实心点 + 深色卡片标签，明显区别于节点 —— */
+.lp-annotation-point {
+  fill: var(--lp-note-yellow);
+  stroke: #10131a;
+  stroke-width: 2;
+}
+.lp-annotation-label-bg {
+  fill: rgba(18, 20, 25, 0.88);
+  stroke: rgba(255, 255, 255, 0.06);
+  stroke-width: 1;
+}
+.lp-annotation-label {
+  fill: #f1f3f6;
+  font-size: 11px;
+}
+.lp-annotation-accent {
+  fill: var(--lp-note-yellow);
+}
+
+/* —— 分段线 / 锁定 / 播放头 视觉区分 —— */
+.lp-boundary-line {
+  stroke: #6b7484;
+  stroke-width: 1;
+  stroke-dasharray: 4 4;
+}
+.lp-boundary.is-selected .lp-boundary-line {
+  stroke: var(--lp-accent);
+}
+.lp-boundary.is-locked .lp-boundary-line {
+  stroke: var(--lp-note-yellow);
+}
+.lp-section-name {
+  fill: var(--lp-text-dim);
+  font-size: 10.5px;
+}
+.lp-section-name.is-selected {
+  fill: var(--lp-accent);
+  font-weight: 600;
+}
+
+/* —— 分析监视器顶部工具条（适应窗口 / 100% / 网格 / 画面 / 分析层 / 干净预览 / 全屏） —— */
+.lp-monitor-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: rgba(18, 20, 25, 0.92);
+  border-bottom: 1px solid var(--lp-border);
+}
+.lp-monitor-bar-spacer {
+  flex: 1;
+}
+.lp-monitor-button {
+  height: 24px;
+  padding: 0 9px;
+  font-size: 11.5px;
+  color: var(--lp-text-dim);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  cursor: pointer;
+}
+.lp-monitor-button:not(:disabled):hover {
+  color: var(--lp-text);
+  background: rgba(255, 255, 255, 0.05);
+}
+.lp-monitor-button.is-active {
+  color: var(--lp-text);
+  border-color: rgba(120, 166, 255, 0.4);
+  background: rgba(120, 166, 255, 0.14);
+}
+.lp-monitor-button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+/* —— 样式检查器页签与样式控件 —— */
+.lp-panel-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 8px 10px 0;
+  border-bottom: 1px solid var(--lp-border);
+}
+/* 检查器页签：纯图标页签（固定尺寸、图标居中；不再有文字节点，杜绝溢出）。 */
+.lp-panel-tab {
+  width: 34px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  color: var(--lp-text-dim);
+  background: transparent;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: 6px 6px 0 0;
+  cursor: pointer;
+}
+.lp-panel-tab svg {
+  width: 18px;
+  height: 18px;
+  display: block;
+}
+.lp-panel-tab:hover {
+  color: var(--lp-text);
+}
+.lp-panel-tab.is-active {
+  color: var(--lp-text);
+  background: var(--lp-panel-deep);
+  border-color: var(--lp-border);
+}
+.lp-style-color {
+  width: 40px;
+  height: 22px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid var(--lp-border);
+  border-radius: 4px;
+  cursor: pointer;
+}
+.lp-props-value {
+  min-width: 44px;
+  font-size: 11.5px;
+  color: var(--lp-text-dim);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ================= 分析监视器 / 时间线分割线 ================= */
+.lp-splitter {
+  flex: none;
+  position: relative;
+  height: 10px;
+  cursor: row-resize;
+  touch-action: none;
+  user-select: none;
+  background: transparent;
+  z-index: 5;
+}
+.lp-splitter::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 1px;
+  transform: translateY(-50%);
+  background: var(--lp-border, #2a2f38);
+  transition: background 0.12s ease;
+}
+.lp-splitter:hover::before {
+  background: rgba(120, 166, 255, 0.55);
+}
+.lp-splitter:focus-visible {
+  outline: 1px solid var(--lp-accent, #78a6ff);
+  outline-offset: -2px;
+}
+.lp-splitter.is-dragging::before {
+  height: 2px;
+  background: #78a6ff;
+}
+.lp-splitter-grip {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 28px;
+  height: 2px;
+  transform: translate(-50%, -50%);
+  border-radius: 2px;
+  background: rgba(120, 166, 255, 0);
+  transition: background 0.12s ease;
+}
+.lp-splitter:hover .lp-splitter-grip,
+.lp-splitter.is-dragging .lp-splitter-grip {
+  background: rgba(120, 166, 255, 0.6);
+}
+.lp-editor.is-resizing {
+  user-select: none;
+}
+.lp-editor.is-resizing * {
+  cursor: row-resize !important;
+}
+
+/* ================= 局部智能分镜 UI ================= */
+.lp-shot-target {
+  margin: 4px 0 8px;
+  font-size: 11px;
+  color: var(--lp-text-dim, #8b93a1);
+  word-break: break-all;
+}
+.lp-shot-target.is-empty {
+  color: #c98a4b;
+}
+.lp-structure-actions--shot {
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.lp-structure-shot-target {
+  font-size: 11px;
+  color: var(--lp-text-dim, #8b93a1);
+}
+.lp-section-button.is-primary {
+  border-color: var(--lp-accent, #78a6ff);
+  color: #dce6ff;
+}
+
+/* 时间范围选区高亮 */
+.lp-timeline-range {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: rgba(120, 166, 255, 0.18);
+  border-left: 1px solid rgba(120, 166, 255, 0.7);
+  border-right: 1px solid rgba(120, 166, 255, 0.7);
+  pointer-events: none;
+  z-index: 6;
+}
+
+/* 结构块右键菜单 */
+.lp-timeline-context {
+  position: fixed;
+  z-index: 60;
+  min-width: 160px;
+  padding: 4px;
+  background: var(--lp-panel, #191c22);
+  border: 1px solid var(--lp-border, #2a2f38);
+  border-radius: 8px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+}
+
+/* 分镜合并策略对话框 */
+.lp-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(4, 5, 8, 0.6);
+}
+.lp-modal {
+  width: min(460px, 88vw);
+  padding: 18px 20px;
+  background: var(--lp-panel, #191c22);
+  border: 1px solid var(--lp-border, #2a2f38);
+  border-radius: 12px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+}
+.lp-modal-title {
+  margin: 0 0 8px;
+  font-size: 15px;
+  color: var(--lp-text, #f1f3f6);
+}
+.lp-modal-message {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: var(--lp-text, #f1f3f6);
+}
+.lp-modal-impact {
+  margin: 0 0 14px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--lp-text-dim, #8b93a1);
+}
+.lp-modal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}

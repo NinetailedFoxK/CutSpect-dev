@@ -1,0 +1,709 @@
+[
+  {
+    "name": "arrow-left",
+    "label": "返回",
+    "category": "基础",
+    "type": "common",
+    "shortcut": ""
+  },
+  {
+    "name": "arrow-right",
+    "label": "前进",
+    "category": "基础",
+    "type": "common",
+    "shortcut": ""
+  },
+  {
+    "name": "chevron-left",
+    "label": "向左收起",
+    "category": "基础",
+    "type": "common",
+    "shortcut": ""
+  },
+  {
+    "name": "chevron-right",
+    "label": "向右展开",
+    "category": "基础",
+    "type": "common",
+    "shortcut": ""
+  },
+  {
+    "name": "chevron-down",
+    "label": "向下展开",
+    "category": "基础",
+    "type": "common",
+    "shortcut": ""
+  },
+  {
+    "name": "close",
+    "label": "关闭",
+    "category": "基础",
+    "type": "common",
+    "shortcut": "Esc"
+  },
+  {
+    "name": "check",
+    "label": "确认",
+    "category": "基础",
+    "type": "common",
+    "shortcut": ""
+  },
+  {
+    "name": "plus",
+    "label": "添加",
+    "category": "基础",
+    "type": "common",
+    "shortcut": ""
+  },
+  {
+    "name": "minus",
+    "label": "移除",
+    "category": "基础",
+    "type": "common",
+    "shortcut": ""
+  },
+  {
+    "name": "search",
+    "label": "搜索",
+    "category": "基础",
+    "type": "common",
+    "shortcut": ""
+  },
+  {
+    "name": "more-horizontal",
+    "label": "更多",
+    "category": "基础",
+    "type": "common",
+    "shortcut": ""
+  },
+  {
+    "name": "undo",
+    "label": "撤销",
+    "category": "基础",
+    "type": "common",
+    "shortcut": "⌘Z"
+  },
+  {
+    "name": "redo",
+    "label": "重做",
+    "category": "基础",
+    "type": "common",
+    "shortcut": "⇧⌘Z"
+  },
+  {
+    "name": "save",
+    "label": "保存",
+    "category": "基础",
+    "type": "common",
+    "shortcut": "⌘S"
+  },
+  {
+    "name": "sliders",
+    "label": "设置",
+    "category": "基础",
+    "type": "common",
+    "shortcut": ""
+  },
+  {
+    "name": "help-circle",
+    "label": "帮助",
+    "category": "基础",
+    "type": "common",
+    "shortcut": "?"
+  },
+  {
+    "name": "keyboard",
+    "label": "快捷键",
+    "category": "基础",
+    "type": "common",
+    "shortcut": "?"
+  },
+  {
+    "name": "panels",
+    "label": "面板布局",
+    "category": "基础",
+    "type": "common",
+    "shortcut": ""
+  },
+  {
+    "name": "task-center",
+    "label": "后台任务",
+    "category": "基础",
+    "type": "common",
+    "shortcut": ""
+  },
+  {
+    "name": "retry",
+    "label": "重试",
+    "category": "基础",
+    "type": "common",
+    "shortcut": ""
+  },
+  {
+    "name": "trash",
+    "label": "删除",
+    "category": "基础",
+    "type": "common",
+    "shortcut": "Delete"
+  },
+  {
+    "name": "edit",
+    "label": "重命名",
+    "category": "基础",
+    "type": "common",
+    "shortcut": ""
+  },
+  {
+    "name": "reset",
+    "label": "恢复默认",
+    "category": "基础",
+    "type": "common",
+    "shortcut": ""
+  },
+  {
+    "name": "play",
+    "label": "播放",
+    "category": "播放",
+    "type": "common",
+    "shortcut": "Space"
+  },
+  {
+    "name": "pause",
+    "label": "暂停",
+    "category": "播放",
+    "type": "common",
+    "shortcut": "Space / K"
+  },
+  {
+    "name": "stop",
+    "label": "停止",
+    "category": "播放",
+    "type": "common",
+    "shortcut": ""
+  },
+  {
+    "name": "step-back",
+    "label": "后退一帧",
+    "category": "播放",
+    "type": "common",
+    "shortcut": "← / A"
+  },
+  {
+    "name": "step-forward",
+    "label": "前进一帧",
+    "category": "播放",
+    "type": "common",
+    "shortcut": "→ / D"
+  },
+  {
+    "name": "skip-start",
+    "label": "跳到开头",
+    "category": "播放",
+    "type": "common",
+    "shortcut": "Home"
+  },
+  {
+    "name": "skip-end",
+    "label": "跳到结尾",
+    "category": "播放",
+    "type": "common",
+    "shortcut": "End"
+  },
+  {
+    "name": "shuttle-reverse",
+    "label": "反向播放",
+    "category": "播放",
+    "type": "common",
+    "shortcut": "J"
+  },
+  {
+    "name": "shuttle-pause",
+    "label": "梭动暂停",
+    "category": "播放",
+    "type": "common",
+    "shortcut": "K"
+  },
+  {
+    "name": "shuttle-forward",
+    "label": "正向播放",
+    "category": "播放",
+    "type": "common",
+    "shortcut": "L"
+  },
+  {
+    "name": "volume-high",
+    "label": "声音",
+    "category": "播放",
+    "type": "common",
+    "shortcut": ""
+  },
+  {
+    "name": "volume-mute",
+    "label": "静音",
+    "category": "播放",
+    "type": "common",
+    "shortcut": ""
+  },
+  {
+    "name": "fullscreen",
+    "label": "全屏",
+    "category": "监视器",
+    "type": "common",
+    "shortcut": ""
+  },
+  {
+    "name": "fullscreen-exit",
+    "label": "退出全屏",
+    "category": "监视器",
+    "type": "common",
+    "shortcut": "Esc"
+  },
+  {
+    "name": "fit-window",
+    "label": "适应窗口",
+    "category": "监视器",
+    "type": "common",
+    "shortcut": ""
+  },
+  {
+    "name": "zoom-100",
+    "label": "原始比例",
+    "category": "监视器",
+    "type": "common",
+    "shortcut": ""
+  },
+  {
+    "name": "grid",
+    "label": "网格",
+    "category": "监视器",
+    "type": "common",
+    "shortcut": ""
+  },
+  {
+    "name": "clean-preview",
+    "label": "干净预览",
+    "category": "监视器",
+    "type": "custom",
+    "shortcut": ""
+  },
+  {
+    "name": "timeline-zoom-in",
+    "label": "放大时间线",
+    "category": "时间线",
+    "type": "common",
+    "shortcut": "Ctrl+滚轮 / +"
+  },
+  {
+    "name": "timeline-zoom-out",
+    "label": "缩小时间线",
+    "category": "时间线",
+    "type": "common",
+    "shortcut": "Ctrl+滚轮 / −"
+  },
+  {
+    "name": "timeline-fit",
+    "label": "适应全部",
+    "category": "时间线",
+    "type": "common",
+    "shortcut": "\\"
+  },
+  {
+    "name": "follow-playhead",
+    "label": "跟随播放头",
+    "category": "时间线",
+    "type": "custom",
+    "shortcut": "F"
+  },
+  {
+    "name": "pan-horizontal",
+    "label": "横向平移",
+    "category": "时间线",
+    "type": "common",
+    "shortcut": "Shift+滚轮"
+  },
+  {
+    "name": "playhead",
+    "label": "播放头",
+    "category": "时间线",
+    "type": "custom",
+    "shortcut": ""
+  },
+  {
+    "name": "range-select",
+    "label": "范围选择",
+    "category": "时间线",
+    "type": "common",
+    "shortcut": ""
+  },
+  {
+    "name": "split",
+    "label": "切分",
+    "category": "时间线",
+    "type": "common",
+    "shortcut": "E"
+  },
+  {
+    "name": "merge-left",
+    "label": "向左合并",
+    "category": "时间线",
+    "type": "custom",
+    "shortcut": "Delete"
+  },
+  {
+    "name": "merge-right",
+    "label": "向右合并",
+    "category": "时间线",
+    "type": "custom",
+    "shortcut": ""
+  },
+  {
+    "name": "lock",
+    "label": "锁定",
+    "category": "时间线",
+    "type": "common",
+    "shortcut": ""
+  },
+  {
+    "name": "unlock",
+    "label": "解锁",
+    "category": "时间线",
+    "type": "common",
+    "shortcut": ""
+  },
+  {
+    "name": "select",
+    "label": "智能选择",
+    "category": "分析工具",
+    "type": "common",
+    "shortcut": "V"
+  },
+  {
+    "name": "node-add",
+    "label": "添加曲线节点",
+    "category": "分析工具",
+    "type": "custom",
+    "shortcut": "Q"
+  },
+  {
+    "name": "annotation-add",
+    "label": "添加画面标注",
+    "category": "分析工具",
+    "type": "custom",
+    "shortcut": "W / M"
+  },
+  {
+    "name": "boundary-add",
+    "label": "添加分段边界",
+    "category": "分析工具",
+    "type": "custom",
+    "shortcut": "E"
+  },
+  {
+    "name": "curve-freehand",
+    "label": "自由绘制",
+    "category": "分析工具",
+    "type": "custom",
+    "shortcut": "R"
+  },
+  {
+    "name": "curve-line",
+    "label": "直线绘制",
+    "category": "分析工具",
+    "type": "custom",
+    "shortcut": "G"
+  },
+  {
+    "name": "curve-auto",
+    "label": "自动平滑",
+    "category": "曲线模式",
+    "type": "custom",
+    "shortcut": "1"
+  },
+  {
+    "name": "curve-linear",
+    "label": "直线模式",
+    "category": "曲线模式",
+    "type": "custom",
+    "shortcut": "2"
+  },
+  {
+    "name": "curve-bezier",
+    "label": "贝塞尔模式",
+    "category": "曲线模式",
+    "type": "custom",
+    "shortcut": "3"
+  },
+  {
+    "name": "bezier-handles",
+    "label": "控制柄",
+    "category": "曲线模式",
+    "type": "custom",
+    "shortcut": ""
+  },
+  {
+    "name": "curve-visible",
+    "label": "显示分析层",
+    "category": "分析工具",
+    "type": "custom",
+    "shortcut": ""
+  },
+  {
+    "name": "curve-hidden",
+    "label": "隐藏分析层",
+    "category": "分析工具",
+    "type": "custom",
+    "shortcut": ""
+  },
+  {
+    "name": "video-visible",
+    "label": "显示画面",
+    "category": "图层",
+    "type": "common",
+    "shortcut": ""
+  },
+  {
+    "name": "video-hidden",
+    "label": "隐藏画面",
+    "category": "图层",
+    "type": "common",
+    "shortcut": ""
+  },
+  {
+    "name": "node-frame-link",
+    "label": "节点画面联动",
+    "category": "分析工具",
+    "type": "custom",
+    "shortcut": ""
+  },
+  {
+    "name": "rhythm-score",
+    "label": "节奏谱工作台",
+    "category": "分析工具",
+    "type": "custom",
+    "shortcut": ""
+  },
+  {
+    "name": "chapter",
+    "label": "章",
+    "category": "结构",
+    "type": "custom",
+    "shortcut": ""
+  },
+  {
+    "name": "section",
+    "label": "节",
+    "category": "结构",
+    "type": "custom",
+    "shortcut": ""
+  },
+  {
+    "name": "shot",
+    "label": "镜头",
+    "category": "结构",
+    "type": "custom",
+    "shortcut": ""
+  },
+  {
+    "name": "hierarchy",
+    "label": "三级结构",
+    "category": "结构",
+    "type": "custom",
+    "shortcut": ""
+  },
+  {
+    "name": "expand",
+    "label": "展开层级",
+    "category": "结构",
+    "type": "common",
+    "shortcut": ""
+  },
+  {
+    "name": "collapse",
+    "label": "折叠层级",
+    "category": "结构",
+    "type": "common",
+    "shortcut": ""
+  },
+  {
+    "name": "focus-segment",
+    "label": "聚焦段落",
+    "category": "结构",
+    "type": "custom",
+    "shortcut": ""
+  },
+  {
+    "name": "play-segment",
+    "label": "播放选中段",
+    "category": "结构",
+    "type": "custom",
+    "shortcut": ""
+  },
+  {
+    "name": "smart-shot",
+    "label": "智能识别镜头",
+    "category": "智能分镜",
+    "type": "custom",
+    "shortcut": ""
+  },
+  {
+    "name": "detect-range",
+    "label": "区域镜头识别",
+    "category": "智能分镜",
+    "type": "custom",
+    "shortcut": ""
+  },
+  {
+    "name": "accept-cuts",
+    "label": "应用切点",
+    "category": "智能分镜",
+    "type": "custom",
+    "shortcut": ""
+  },
+  {
+    "name": "reject-cut",
+    "label": "删除候选切点",
+    "category": "智能分镜",
+    "type": "custom",
+    "shortcut": ""
+  },
+  {
+    "name": "library",
+    "label": "项目库",
+    "category": "项目",
+    "type": "custom",
+    "shortcut": ""
+  },
+  {
+    "name": "new-project",
+    "label": "新建项目",
+    "category": "项目",
+    "type": "common",
+    "shortcut": ""
+  },
+  {
+    "name": "import-video",
+    "label": "导入视频",
+    "category": "项目",
+    "type": "common",
+    "shortcut": ""
+  },
+  {
+    "name": "open-folder",
+    "label": "打开文件夹",
+    "category": "项目",
+    "type": "common",
+    "shortcut": ""
+  },
+  {
+    "name": "reveal-finder",
+    "label": "在访达中显示",
+    "category": "项目",
+    "type": "common",
+    "shortcut": ""
+  },
+  {
+    "name": "export",
+    "label": "导出",
+    "category": "导出",
+    "type": "common",
+    "shortcut": ""
+  },
+  {
+    "name": "file-pdf",
+    "label": "导出 PDF",
+    "category": "导出",
+    "type": "common",
+    "shortcut": ""
+  },
+  {
+    "name": "file-xlsx",
+    "label": "导出表格",
+    "category": "导出",
+    "type": "common",
+    "shortcut": ""
+  },
+  {
+    "name": "file-png",
+    "label": "导出图片",
+    "category": "导出",
+    "type": "common",
+    "shortcut": ""
+  },
+  {
+    "name": "file-markdown",
+    "label": "导出报告",
+    "category": "导出",
+    "type": "custom",
+    "shortcut": ""
+  },
+  {
+    "name": "file-json",
+    "label": "导出数据",
+    "category": "导出",
+    "type": "common",
+    "shortcut": ""
+  },
+  {
+    "name": "inspector-content",
+    "label": "内容检查器",
+    "category": "检查器",
+    "type": "custom",
+    "shortcut": ""
+  },
+  {
+    "name": "inspector-style",
+    "label": "样式检查器",
+    "category": "检查器",
+    "type": "custom",
+    "shortcut": ""
+  },
+  {
+    "name": "inspector-structure",
+    "label": "结构检查器",
+    "category": "检查器",
+    "type": "custom",
+    "shortcut": ""
+  },
+  {
+    "name": "color",
+    "label": "颜色",
+    "category": "检查器",
+    "type": "common",
+    "shortcut": ""
+  },
+  {
+    "name": "opacity",
+    "label": "透明度",
+    "category": "检查器",
+    "type": "common",
+    "shortcut": ""
+  },
+  {
+    "name": "error",
+    "label": "错误",
+    "category": "状态",
+    "type": "common",
+    "shortcut": ""
+  },
+  {
+    "name": "warning",
+    "label": "警告",
+    "category": "状态",
+    "type": "common",
+    "shortcut": ""
+  },
+  {
+    "name": "info",
+    "label": "信息",
+    "category": "状态",
+    "type": "common",
+    "shortcut": ""
+  },
+  {
+    "name": "success",
+    "label": "完成",
+    "category": "状态",
+    "type": "common",
+    "shortcut": ""
+  }
+]

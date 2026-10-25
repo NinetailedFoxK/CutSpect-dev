@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>拉片台 · 工作台 dev 预览（仅开发用）</title>
+    <style>
+      /* dev-editor.html 专属基础样式：不进生产构建（vite build 只打包
+         index.html 入口），不影响项目库页面。 */
+      html,
+      body,
+      #root {
+        height: 100%;
+        margin: 0;
+        background: #15171c;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <!--
+      仅开发预览入口（任务 A-T6 dev 脚手架，集成后删除）。
+      产品入口是 index.html → src/renderer/main.tsx → App（项目库）。
+    -->
+    <script type="module" src="/src/renderer/dev/demo-editor.tsx"></script>
+  </body>
+</html>

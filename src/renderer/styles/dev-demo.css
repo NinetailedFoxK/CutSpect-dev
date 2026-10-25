@@ -1,0 +1,126 @@
+/**
+ * dev demo 专属样式（仅开发预览，集成后删除）。
+ * 不进生产构建：dev-editor.html 不是 vite build 入口。
+ */
+
+.dev-editor-root {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.dev-statusbar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 4px 12px;
+  background: #101218;
+  color: #9ba3b4;
+  font-size: 11px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  border-bottom: 1px solid #343946;
+}
+
+.dev-view-dump {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #7ea3ff;
+}
+
+.dev-editor-root .lp-editor {
+  flex: 1;
+  min-height: 0;
+}
+
+.dev-launcher {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  padding: 24px;
+  background: #15171c;
+  color: #e8eaf0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
+    'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  box-sizing: border-box;
+}
+
+.dev-banner {
+  max-width: 640px;
+  padding: 12px 16px;
+  background: #20232b;
+  border: 1px solid #f5ba42;
+  border-radius: 8px;
+  color: #9ba3b4;
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.dev-banner code {
+  color: #f5ba42;
+}
+
+.dev-launcher-card {
+  width: min(520px, 100%);
+  padding: 24px;
+  background: #20232b;
+  border: 1px solid #343946;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.dev-launcher-card h1 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.dev-file-label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 12px;
+  color: #9ba3b4;
+}
+
+.dev-file-label input {
+  color: #e8eaf0;
+  font: inherit;
+}
+
+.dev-builtin-button {
+  height: 34px;
+  background: #5b8cff;
+  border: none;
+  border-radius: 8px;
+  color: #10131a;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.dev-builtin-button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.dev-hint,
+.dev-error {
+  margin: 0;
+  font-size: 12px;
+}
+
+.dev-hint {
+  color: #9ba3b4;
+}
+
+.dev-error {
+  color: #e2556a;
+}

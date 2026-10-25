@@ -1,0 +1,710 @@
+/*
+ * 拉片台 · 石墨节奏台覆盖层 v1.0（方案 §2 / §4 / §6 / §8）
+ *
+ * 必须在 graphite.css 之后引入（main.tsx 末尾）。作用：把编辑器从“左文字工具墙 +
+ * 上方大圆角卡片 + 三条同构色块轨”重排为「上方观片 / 下方读谱」的连续工作面：
+ *
+ * - 左栏换为可收起的镜头索引；右栏检查器可收起；横向工具栏移入读谱区顶部。
+ * - 去大圆角、去卡片阴影与外围留白，工作面之间以 1px 分隔线直接连接。
+ * - 底部状态栏承接原“操作提示”条，读谱工具条承接原“智能分镜”独立横条。
+ *
+ * 只做视觉与布局覆盖，不改动任何组件逻辑与快捷键（方案 §6 / 用户确认）。
+ */
+
+/* ================================================================== */
+/* 1. 三栏骨架：镜头索引 / 中央 / 检查器                                 */
+/* ================================================================== */
+
+.lp-body {
+  background: var(--g-bg);
+}
+
+/* ---------------- 左侧镜头索引栏 ---------------- */
+
+.lp-rail {
+  flex: none;
+  width: var(--g-rail-w);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--g-panel);
+  border-right: 1px solid var(--g-border);
+}
+
+.lp-rail.is-collapsed {
+  width: var(--g-rail-collapsed-w);
+  align-items: center;
+}
+
+.lp-rail-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: var(--g-score-toolbar-h);
+  padding: 0 6px 0 10px;
+  border-bottom: 1px solid var(--g-border);
+}
+
+.lp-rail-title {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--g-fs-panel);
+  font-weight: 600;
+  color: var(--g-text-1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lp-rail-count {
+  font-family: var(--g-font-mono);
+  font-size: 10px;
+  color: var(--g-text-3);
+}
+
+.lp-rail-handle {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--g-r-sm);
+  background: transparent;
+  color: var(--g-text-2);
+  font-size: 10px;
+  cursor: pointer;
+}
+.lp-rail-handle:hover {
+  background: var(--g-hover);
+  color: var(--g-text);
+}
+
+/* 收起态：整栏只剩一条把手。 */
+.lp-rail.is-collapsed .lp-rail-handle {
+  margin-top: 6px;
+  width: 26px;
+  height: 44px;
+  flex-direction: column;
+  gap: 2px;
+}
+.lp-rail-handle-count {
+  font-family: var(--g-font-mono);
+  font-size: 9px;
+  color: var(--g-text-3);
+}
+
+.lp-rail-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.lp-rail-empty {
+  margin: 8px 6px;
+  font-size: var(--g-fs-help);
+  line-height: 1.5;
+  color: var(--g-text-3);
+}
+
+.lp-rail-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 3px;
+  border: 1px solid transparent;
+  border-radius: var(--g-r-block);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+.lp-rail-item:hover {
+  background: var(--g-hover);
+}
+.lp-rail-item.is-active {
+  background: var(--g-blue-soft);
+  border-color: var(--g-blue);
+}
+
+.lp-rail-thumb {
+  flex: none;
+  width: 60px;
+  height: 34px;
+  overflow: hidden;
+  background: #08090c;
+  border: 1px solid var(--g-border);
+  border-radius: var(--g-r-block);
+}
+.lp-rail-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  filter: brightness(0.9) saturate(0.9);
+}
+.lp-rail-item.is-active .lp-rail-thumb img {
+  filter: brightness(1) saturate(1);
+}
+
+.lp-rail-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.lp-rail-no {
+  font-family: var(--g-font-mono);
+  font-size: 10px;
+  color: var(--g-text-1);
+}
+.lp-rail-time {
+  font-family: var(--g-font-mono);
+  font-size: 9px;
+  color: var(--g-text-3);
+}
+.lp-rail-item.is-active .lp-rail-no {
+  color: var(--g-text);
+}
+
+/* ================================================================== */
+/* 2. 中央：上方观片（lp-stage） / 下方读谱（lp-score）                  */
+/* ================================================================== */
+
+.lp-center {
+  background: var(--g-workspace);
+}
+
+.lp-stage {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.lp-score {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--g-workspace);
+}
+
+/* ---------------- 读谱工具条（方案 §6：横向谱面工具条） ---------------- */
+
+.lp-score-toolbar {
+  flex: none;
+  height: var(--g-score-toolbar-h);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 8px;
+  background: var(--g-panel);
+  border-bottom: 1px solid var(--g-border);
+}
+
+.lp-score-tools {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.lp-score-tool-group {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+/* 组间短分隔线。 */
+.lp-score-tool-group + .lp-score-tool-group {
+  padding-left: 10px;
+  border-left: 1px solid var(--g-border);
+}
+
+.lp-score-toolbar-spacer {
+  flex: 1;
+}
+
+/* 工具按钮：横向小按钮（读谱工具条内），与左侧工具墙区分。 */
+.lp-score-toolbar .lp-tool-slot {
+  width: auto;
+  min-width: 0;
+  height: 26px;
+  flex-direction: row;
+  gap: 5px;
+  padding: 0 8px;
+  border-radius: var(--g-r-sm);
+  border-color: transparent;
+  background: transparent;
+  color: var(--g-text-2);
+  opacity: 1;
+}
+.lp-score-toolbar .lp-tool-slot:not(:disabled):hover {
+  background: var(--g-hover);
+  border-color: transparent;
+  color: var(--g-text);
+}
+.lp-score-toolbar .lp-tool-slot.is-active {
+  background: var(--g-blue-soft);
+  border-color: var(--g-blue);
+  color: var(--g-text);
+}
+.lp-score-toolbar .lp-tool-slot.is-active::before {
+  display: none;
+}
+.lp-score-toolbar .lp-tool-slot-label {
+  font-size: var(--g-fs-btn);
+}
+.lp-score-toolbar .lp-tool-slot-key {
+  font-family: var(--g-font-mono);
+  font-size: 9px;
+  color: var(--g-text-3);
+}
+
+/* 智能分镜在读谱工具条内：取消独占行。 */
+.lp-score-toolbar .lp-shot-bar {
+  padding: 0;
+  gap: 8px;
+}
+.lp-score-toolbar .lp-shot-bar .lp-topbar-button {
+  height: 26px;
+}
+.lp-score-toolbar .lp-shot-count {
+  border-radius: var(--g-r-sm);
+  background: rgba(75, 196, 213, 0.14);
+  color: var(--g-shot);
+}
+
+/* ---------------- 底部状态栏（承接原“操作提示”条，方案 §5） ---------------- */
+
+.lp-statusbar {
+  flex: none;
+  height: var(--g-statusbar-h);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 10px;
+  background: var(--g-workspace);
+  border-top: 1px solid var(--g-border);
+  font-size: var(--g-fs-help);
+  color: var(--g-text-3);
+}
+.lp-statusbar-hint {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.lp-statusbar-spacer {
+  flex: 1;
+}
+.lp-statusbar-scale {
+  flex: none;
+  color: var(--g-text-3);
+}
+
+/* ================================================================== */
+/* 3. 去大圆角 / 去卡片 / 工作面直接连接（方案 §4）                       */
+/* ================================================================== */
+
+/* 视频监视器：0 圆角，去外边距与阴影，与工具条、播放条 1px 连接。 */
+.lp-canvas-host {
+  margin: 0;
+  border: 0;
+  border-radius: var(--g-r-surface);
+  box-shadow: none;
+  background: #08090c;
+}
+.lp-canvas-video {
+  border-radius: var(--g-r-surface);
+}
+.lp-monitor-bar {
+  border-bottom: 1px solid var(--g-border);
+}
+
+/* 时间线：并入读谱区，去掉外围卡片式圆角、边距与描边。 */
+.lp-score .lp-timeline {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  border: 0;
+  border-radius: var(--g-r-surface);
+}
+.lp-score .lp-timeline-ruler {
+  background: var(--g-workspace);
+}
+.lp-score .lp-timeline-bottom {
+  background: var(--g-panel);
+}
+
+/* ================================================================== */
+/* 4. 右侧检查器收起（方案 §2）                                          */
+/* ================================================================== */
+
+.lp-panel-tabs {
+  display: flex;
+  align-items: center;
+}
+.lp-panel-tabs-spacer {
+  flex: 1;
+}
+.lp-panel-collapse {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  margin-right: 6px;
+  border: 1px solid transparent;
+  border-radius: var(--g-r-sm);
+  background: transparent;
+  color: var(--g-text-3);
+  font-size: 10px;
+  cursor: pointer;
+}
+.lp-panel-collapse:hover {
+  background: var(--g-hover);
+  color: var(--g-text);
+}
+
+/* 收起后的展开把手：贴右边缘的一竖条。 */
+.lp-panel-handle {
+  flex: none;
+  width: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-left: 1px solid var(--g-border);
+  border-radius: 0;
+  background: var(--g-panel);
+  color: var(--g-text-3);
+  font-size: 10px;
+  cursor: pointer;
+}
+.lp-panel-handle:hover {
+  background: var(--g-hover);
+  color: var(--g-text);
+}
+/* ================================================================== */
+/* 5. 谱面视图（sheet）：读谱区的曲线谱面（方案 §2）                      */
+/* ================================================================== */
+
+/* 视频区监视器工具条中的分组竖分隔。 */
+.lp-monitor-bar-sep {
+  width: 1px;
+  height: 16px;
+  margin: 0 4px;
+  background: var(--g-border);
+}
+
+/* 曲线谱面：视频与曲线分开，曲线在此独立编辑；横向与时间线共用 plotX。 */
+.lp-score-canvas {
+  position: relative;
+  flex: none;
+  height: 176px;
+  overflow: hidden;
+  background: var(--g-workspace);
+  border-bottom: 1px solid var(--g-border);
+}
+.lp-score-canvas .lp-canvas-analysis {
+  pointer-events: none;
+}
+/* 谱面内网格比视频层略明显，作为可编辑坐标。 */
+.lp-score-canvas .lp-grid-line {
+  stroke: rgba(255, 255, 255, 0.09);
+}
+/* ================================================================== */
+/* 6. 节奏谱结构：章节条 + 段落条 + 镜头画面轨（方案 §7）                  */
+/* ================================================================== */
+
+/* 结构区总高：章节 / 段落两条固定高；视频画面轨吃掉剩余全部高度。 */
+.lp-timeline-ruler.has-structure-tracks {
+  --timeline-structure-h: 92px;
+}
+
+.lp-structure-tracks {
+  grid-template-rows: 1fr 1fr;
+  gap: 4px;
+  background: var(--g-workspace);
+}
+
+/* 章节条：深蓝灰底。 */
+.lp-structure-track.is-chapter {
+  background: #232a38;
+}
+.lp-structure-track.is-section {
+  background: #191d24;
+}
+
+/* 章节 / 段落块。 */
+.lp-structure-block.is-chapter {
+  background: #2b3444;
+  border-color: #3a465a;
+}
+.lp-structure-block.is-section {
+  background: #1f242e;
+  border-color: #2c3542;
+}
+
+/* 镜头不再用结构块渲染：已叠加到独立视频画面轨（见 .lp-shot-overlay-block）。 */
+
+/* 章节条 / 段落条选中仍用蓝色底（信息块，非画面）。 */
+.lp-structure-block.is-chapter.is-selected,
+.lp-structure-block.is-section.is-selected {
+  box-shadow: inset 0 0 0 1px rgba(110, 139, 255, 0.24);
+}
+/* ================================================================== */
+/* 7. 段落「曲线印记」（方案 §3）：结构大纲内的微型曲线                  */
+/* ================================================================== */
+
+.lp-structure-row .lp-structure-name {
+  flex: 1;
+  min-width: 0;
+}
+.lp-structure-spark {
+  flex: none;
+  width: 44px;
+  height: 14px;
+  margin-left: 2px;
+  opacity: 0.85;
+}
+.lp-structure-row.is-selected .lp-structure-spark {
+  opacity: 1;
+}
+.lp-spark-line {
+  fill: none;
+  stroke: var(--g-curve);
+  stroke-width: 1.2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+/* ================================================================== */
+/* 8. 图标按钮（方案 §5）：统一 18px 线性，默认灰 / 悬停亮 / 选中蓝       */
+/* ================================================================== */
+
+.lp-editor svg {
+  display: block;
+}
+
+/* 工具栏图标按钮：图标 + 快捷键小字。 */
+.lp-tool-icon {
+  flex: none;
+  width: 18px;
+  height: 18px;
+}
+.lp-score-toolbar .lp-tool-slot .lp-tool-slot-key {
+  font-family: var(--g-font-mono);
+  opacity: 0.8;
+}
+
+/* 监视器工具条：图标按钮居中收窄。 */
+.lp-monitor-bar .lp-monitor-button {
+  min-width: 28px;
+  padding: 0 7px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+}
+.lp-monitor-bar .lp-monitor-button svg {
+  width: 17px;
+  height: 17px;
+}
+
+/* 顶栏：图标按钮为方形；带文字的按钮保持图标 + 文字横排。 */
+.lp-topbar-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.lp-topbar-button.is-icon {
+  width: 28px;
+  padding: 0;
+  justify-content: center;
+}
+.lp-topbar-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.lp-topbar-back svg {
+  width: 14px;
+  height: 14px;
+}
+/* 图标化的带文字按钮：图标 + 文字横排。 */
+.lp-editor .lp-section-button,
+.lp-editor .lp-shot-action,
+.lp-editor .lp-tool-button,
+.lp-editor .lp-menu-button,
+.lp-preset-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.lp-editor .lp-section-button svg,
+.lp-editor .lp-shot-action svg,
+.lp-editor .lp-tool-button svg {
+  width: 15px;
+  height: 15px;
+}
+.lp-editor .lp-menu-button svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* 通用图标按钮（IconButton）。 */
+.lp-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--g-r-sm);
+  background: transparent;
+  color: var(--g-text-2);
+  cursor: pointer;
+}
+.lp-icon-button:hover {
+  background: var(--g-hover);
+  color: var(--g-text);
+}
+.lp-icon-button.is-selected {
+  background: var(--g-blue-soft);
+  border-color: var(--g-blue);
+  color: var(--g-text);
+}
+.lp-icon-button.is-danger {
+  color: var(--g-err);
+}
+.lp-icon-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* 结构锁 / 折叠图标尺寸。 */
+.lp-structure-block-lock {
+  width: 12px;
+  height: 12px;
+  color: var(--g-warn);
+}
+.lp-structure-lock {
+  width: 13px;
+  height: 13px;
+  color: var(--g-warn);
+}
+.lp-structure-twisty svg {
+  width: 14px;
+  height: 14px;
+}
+/* 项目库 / 弹窗：图标 + 文字横排。 */
+.home-page .home-card-button,
+.home-page .primary-button,
+.home-page .dialog-button-secondary,
+.home-card-menu > summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.home-page .home-card-button svg,
+.home-page .dialog-button-secondary svg {
+  width: 15px;
+  height: 15px;
+}
+.home-card-menu > summary svg {
+  width: 16px;
+  height: 16px;
+}
+/* ================================================================== */
+/* 9. 图例 / 图层浮层 / 导入页（图标语言统一）                            */
+/* ================================================================== */
+
+/* 时间线底部图例（范围选择 / 切点 / 锁定）。 */
+.lp-timeline-legend {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+  color: var(--g-text-3);
+}
+.lp-legend-item {
+  display: inline-flex;
+  align-items: center;
+  color: var(--g-text-3);
+}
+.lp-legend-item svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* 图层浮层：复选框 + 图标 + 文字。 */
+.lp-layer-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.lp-layer-name svg {
+  width: 15px;
+  height: 15px;
+  color: var(--g-text-2);
+}
+
+/* 导入步骤徽标图标。 */
+.import-step-dot svg {
+  width: 12px;
+  height: 12px;
+}
+/* ================================================================== */
+/* 10. 统一悬停提示 + 工具栏尺寸收紧（修复气泡溢出 / 缺提示）              */
+/* ================================================================== */
+
+/* 悬停提示：fixed 定位，不受面板 overflow 裁切。 */
+.lp-tooltip {
+  position: fixed;
+  z-index: 3000;
+  max-width: 280px;
+  padding: 4px 8px;
+  border: 1px solid var(--g-border);
+  border-radius: var(--g-r-sm);
+  background: var(--g-panel);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.42);
+  color: var(--g-text);
+  font-size: var(--g-fs-help);
+  line-height: 1.3;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* 常驻工具栏：只显示图标、固定尺寸、完整居中；不显示快捷键文字。 */
+.lp-score-toolbar .lp-tool-slot {
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  padding: 0;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  overflow: hidden;
+}
+.lp-score-toolbar .lp-tool-slot .lp-tool-icon {
+  width: 18px;
+  height: 18px;
+  flex: none;
+}
+/* 兜底：即使仍有快捷键元素也不参与布局/不溢出。 */
+.lp-score-toolbar .lp-tool-slot .lp-tool-slot-key {
+  display: none;
+}

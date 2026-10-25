@@ -1,0 +1,1185 @@
+/*
+ * 拉片台 · 石墨工作台视觉覆盖层 v1.0
+ *
+ * 必须在所有其它样式之后引入（main.tsx 末尾），用于在既有 .lp-* / .home-* /
+ * .import-* / .feedback-* 类名之上统一视觉与交互状态，而不改动组件结构与逻辑。
+ *
+ * 覆盖范围：全局层级与字体、按钮/输入/菜单状态、编辑器骨架尺寸（顶栏46/工具栏50/
+ * 检查器320×280-440/播放栏40/时间线最小180）、分析监视器、时间线轨道与层级、
+ * 曲线/节点/标注/边界、右侧结构大纲、项目库/导入/弹窗、Toast/确认/任务中心。
+ *
+ * 禁止项（对齐方案 §19）：大面积渐变、玻璃拟态、圆角卡片堆叠、每功能一色、
+ * 过大标题留白、胶囊按钮、强阴影悬浮、纯黑纯白过强对比。
+ */
+
+/* ================================================================== */
+/* 1. 全局层级与字体                                                    */
+/* ================================================================== */
+
+html,
+body {
+  background: var(--g-bg);
+  color: var(--g-text);
+  font-family: var(--g-font-ui);
+  font-size: var(--g-fs-body);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+.app-shell {
+  background: var(--g-bg);
+}
+
+/* 统一键盘焦点：1px 蓝色外框（可访问性，非仅靠颜色）。 */
+.lp-editor :focus-visible,
+.home-page :focus-visible,
+.import-page :focus-visible,
+.dialog :focus-visible,
+button:focus-visible:not(.lp-structure-block):not(.lp-timeline-candidate) {
+  outline: 1px solid var(--g-blue);
+  outline-offset: 1px;
+}
+
+/* 滚动条：石墨风格，细、低对比。 */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #2b313c;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  border-radius: 6px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #39414f;
+  background-clip: padding-box;
+}
+
+/* ================================================================== */
+/* 2. 按钮 / 输入 / 菜单统一交互状态                                    */
+/* ================================================================== */
+
+.lp-editor button,
+.home-page button,
+.import-page button,
+.dialog button {
+  font-family: var(--g-font-ui);
+  font-size: var(--g-fs-btn);
+  font-weight: 500;
+  border-radius: var(--g-r-sm);
+  transition:
+    background var(--g-t-hover) ease,
+    border-color var(--g-t-hover) ease,
+    color var(--g-t-hover) ease;
+}
+
+.lp-editor button:disabled,
+.home-page button:disabled,
+.import-page button:disabled,
+.dialog button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* 输入框统一：高度 28–30、内阴影层级、聚焦蓝框。 */
+.lp-editor input[type='text'],
+.lp-editor input[type='number'],
+.lp-editor input[type='search'],
+.lp-editor textarea,
+.lp-editor select,
+.home-search input,
+.dialog input,
+.import-page input {
+  background: var(--g-input);
+  border: 1px solid var(--g-border);
+  border-radius: var(--g-r-sm);
+  color: var(--g-text);
+  font-family: var(--g-font-ui);
+  font-size: var(--g-fs-body);
+  min-height: 28px;
+  padding: 0 8px;
+}
+
+.lp-editor input:focus,
+.lp-editor textarea:focus,
+.lp-editor select:focus,
+.home-search input:focus,
+.dialog input:focus {
+  border-color: var(--g-blue);
+  outline: none;
+}
+
+.lp-editor input::placeholder,
+.home-search input::placeholder {
+  color: var(--g-text-3);
+}
+
+/* 主按钮：蓝色是唯一长期强调色。 */
+.lp-section-button.is-primary,
+.primary-button,
+.home-card-button--primary,
+.import-actions .import-button--primary,
+.dialog-button-primary {
+  background: var(--g-blue);
+  border: 1px solid var(--g-blue);
+  color: #0c0e12;
+  box-shadow: none;
+}
+.lp-section-button.is-primary:hover,
+.primary-button:hover:not(:disabled),
+.home-card-button--primary:hover {
+  background: #8098ff;
+  border-color: #8098ff;
+  filter: none;
+}
+
+/* ================================================================== */
+/* 3. 编辑器骨架                                                        */
+/* ================================================================== */
+
+.lp-topbar {
+  height: var(--g-topbar-h);
+  background: var(--g-panel);
+  border-bottom: 1px solid var(--g-border);
+}
+
+.lp-project-name {
+  font-size: var(--g-fs-title);
+  font-weight: 600;
+}
+
+/* 保存状态：文字 + 小圆点，克制配色。 */
+.lp-save-status {
+  font-size: var(--g-fs-help);
+}
+.lp-save-status.is-saved {
+  color: var(--g-text-3);
+}
+.lp-save-status.is-saving {
+  color: var(--g-blue);
+}
+.lp-save-status.is-dirty {
+  color: var(--g-warn);
+}
+.lp-save-status.is-error {
+  color: var(--g-err);
+}
+
+.lp-topbar-button {
+  height: 28px;
+  padding: 0 10px;
+  background: transparent;
+  border: 1px solid var(--g-border);
+  border-radius: var(--g-r-sm);
+  color: var(--g-text-1);
+}
+.lp-topbar-button:not(:disabled):hover {
+  background: var(--g-hover);
+  border-color: var(--g-border-strong);
+  color: var(--g-text);
+}
+.lp-topbar-button.is-active {
+  background: var(--g-blue-soft);
+  border-color: var(--g-blue);
+  color: var(--g-text);
+}
+.lp-topbar-button.is-primary {
+  border-color: rgba(110, 139, 255, 0.68);
+  background: rgba(110, 139, 255, 0.14);
+  color: #dce4ff;
+}
+.lp-topbar-button.is-primary:hover,
+.lp-topbar-button.is-primary.is-active {
+  border-color: var(--g-blue);
+  background: rgba(110, 139, 255, 0.22);
+}
+
+/* 左工具栏：50px，图标分组，选中态左指示条。 */
+.lp-editor .lp-toolbar {
+  flex: 0 0 var(--g-toolbar-w);
+  width: var(--g-toolbar-w);
+  min-width: 0;
+  padding: 10px 0;
+  align-items: center;
+  gap: 10px;
+  background: var(--g-panel);
+  border-right: 1px solid var(--g-border);
+}
+.lp-tool-group {
+  position: relative;
+  align-items: center;
+  min-width: 0;
+  width: 100%;
+  gap: 5px;
+}
+.lp-tool-group-title {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+.lp-tool-group + .lp-tool-group {
+  margin-top: 5px;
+  padding-top: 10px;
+}
+.lp-tool-group + .lp-tool-group::before {
+  content: '';
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  top: 0;
+  height: 1px;
+  background: var(--g-border);
+}
+.lp-editor .lp-tool-slot {
+  position: relative;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--g-r-sm);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--g-text-2);
+  opacity: 1;
+}
+.lp-editor .lp-tool-slot:not(:disabled):hover {
+  background: var(--g-hover);
+  color: var(--g-text);
+}
+.lp-editor .lp-tool-slot.is-active {
+  background: var(--g-blue-soft);
+  border-color: var(--g-blue);
+  color: var(--g-text);
+}
+.lp-editor .lp-tool-slot.is-active::before {
+  content: '';
+  position: absolute;
+  left: -4px;
+  top: 5px;
+  bottom: 5px;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--g-blue);
+}
+.lp-editor .lp-tool-slot:disabled {
+  opacity: 0.4;
+}
+.lp-tool-slot-label {
+  font-size: 10px;
+}
+
+/* 中央列与监视器工具条。 */
+.lp-center {
+  background: var(--g-workspace);
+}
+.lp-monitor-bar {
+  min-height: 34px;
+  background: var(--g-panel);
+  border-bottom: 1px solid var(--g-border);
+}
+.lp-monitor-button {
+  height: 26px;
+  padding: 0 9px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--g-r-sm);
+  color: var(--g-text-2);
+}
+.lp-monitor-button:not(:disabled):hover {
+  background: var(--g-hover);
+  color: var(--g-text);
+}
+.lp-monitor-button.is-active {
+  background: var(--g-blue-soft);
+  border-color: var(--g-blue);
+  color: var(--g-text);
+}
+
+/* 右侧检查器：320，可拖 280–440。 */
+.lp-panel {
+  width: var(--g-panel-w);
+  min-width: var(--g-panel-min);
+  max-width: var(--g-panel-max);
+  background: var(--g-panel);
+  border-left: 1px solid var(--g-border);
+}
+.lp-panel-tabs {
+  border-bottom: 1px solid var(--g-border);
+  background: var(--g-panel);
+}
+/* 页签 = 纯图标：固定尺寸、图标水平垂直居中、选中紫色图标 + 底边线 + 轻底。
+   按钮内已无文字节点（不再依赖 overflow:hidden 裁切）。 */
+.lp-panel-tab {
+  width: 34px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  font-size: var(--g-fs-btn);
+  color: var(--g-text-2);
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+}
+.lp-panel-tab svg {
+  width: 18px;
+  height: 18px;
+  display: block;
+}
+.lp-panel-tab:hover {
+  color: var(--g-text);
+  background: var(--g-hover);
+}
+.lp-panel-tab.is-active {
+  color: var(--g-blue);
+  background: var(--g-blue-soft);
+  border-bottom-color: var(--g-blue);
+}
+.lp-panel-tabs {
+  gap: 2px;
+}
+
+/* 面板内小标题与分组：小标题 + 分隔线，不做多层卡片。 */
+.lp-props-title,
+.lp-structure-heading {
+  font-size: var(--g-fs-panel);
+  font-weight: 600;
+  color: var(--g-text-1);
+}
+.lp-props-section {
+  border-bottom: 1px solid var(--g-border);
+  padding: 10px 12px;
+  background: transparent;
+}
+.lp-props-label,
+.lp-field-label {
+  color: var(--g-text-2);
+  font-size: var(--g-fs-btn);
+}
+
+/* 播放控制栏：40px，上下 1px 分隔，悬停才出现背景。 */
+.lp-playerbar {
+  height: var(--g-playerbar-h);
+  background: var(--g-panel);
+  border-top: 1px solid var(--g-border);
+  border-bottom: 1px solid var(--g-border);
+}
+.lp-playerbar button {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--g-r-sm);
+  color: var(--g-text-1);
+}
+.lp-playerbar button:not(:disabled):hover {
+  background: var(--g-hover);
+  color: var(--g-text);
+}
+.lp-time-current {
+  color: var(--g-text);
+  font-size: var(--g-fs-time);
+  font-weight: 600;
+}
+.lp-time-total {
+  color: var(--g-text-3);
+  font-size: var(--g-fs-time);
+}
+
+/* 分割线（时间线高度 / 面板宽度）：1px 视觉，10px 命中。 */
+.lp-splitter {
+  height: var(--g-splitter-thickness);
+}
+.lp-splitter::before {
+  background: var(--g-border);
+}
+.lp-splitter:hover::before {
+  background: #55607a;
+}
+.lp-splitter.is-dragging::before,
+.lp-splitter:focus-visible::before {
+  background: var(--g-blue);
+}
+.lp-splitter-grip {
+  background: transparent;
+}
+.lp-splitter:hover .lp-splitter-grip,
+.lp-splitter.is-dragging .lp-splitter-grip {
+  background: #55607a;
+}
+
+/* 面板宽度分割线（竖直）。 */
+.lp-panel-splitter {
+  flex: none;
+  width: var(--g-splitter-thickness);
+  cursor: col-resize;
+  touch-action: none;
+  position: relative;
+  background: transparent;
+  z-index: 5;
+}
+.lp-panel-splitter::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 1px;
+  transform: translateX(-50%);
+  background: var(--g-border);
+  transition: background var(--g-t-hover) ease;
+}
+.lp-panel-splitter:hover::before {
+  background: #55607a;
+}
+.lp-panel-splitter.is-dragging::before,
+.lp-panel-splitter:focus-visible::before {
+  background: var(--g-blue);
+  width: 2px;
+}
+
+/* 提示条。 */
+.lp-hint-bar {
+  background: var(--g-workspace);
+  color: var(--g-text-3);
+  font-size: var(--g-fs-help);
+  border-top: 1px solid var(--g-border);
+}
+
+/* ================================================================== */
+/* 4. 分析监视器                                                        */
+/* ================================================================== */
+
+.lp-canvas-host {
+  margin: 8px 8px 0;
+  background: #050608;
+  border: 1px solid var(--g-border);
+  border-radius: var(--g-r-sm);
+  box-shadow: none;
+}
+.lp-canvas-video {
+  background: #050608;
+}
+/* 竖屏/横屏两侧留白：暗化，不使用纯黑强对比。 */
+.lp-canvas-host {
+  background: #08090c;
+}
+.lp-grid-line {
+  stroke: rgba(255, 255, 255, 0.06);
+}
+.lp-axis-label {
+  fill: var(--g-text-3);
+}
+
+/* ================================================================== */
+/* 5. 时间线                                                            */
+/* ================================================================== */
+
+.lp-timeline {
+  min-height: var(--g-timeline-min);
+  margin: 0 8px 8px;
+  overflow: hidden;
+  background: var(--g-workspace);
+  border: 1px solid var(--g-border);
+  border-radius: var(--g-r-md);
+}
+.lp-timeline-ruler {
+  --timeline-scale-h: 28px;
+  /* 结构轨只放章节 / 段落两条，固定内容高；剩余高度全部给视频画面轨
+     （不再用 62% 吞掉空间导致下方大片黑区）。 */
+  --timeline-structure-h: 92px;
+  background: var(--g-workspace);
+}
+/* 独立视频画面轨：**始终显示**，占满结构轨之下的全部剩余高度（拉高随之变高）。 */
+.lp-video-track {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: var(--timeline-scale-h);
+  bottom: 0;
+  overflow: hidden;
+  background: #101319;
+  border-top: 1px solid var(--g-border);
+  z-index: 1;
+}
+.lp-timeline-ruler.has-structure-tracks .lp-video-track {
+  top: calc(var(--timeline-scale-h) + var(--timeline-structure-h) + 6px);
+}
+.lp-video-slot {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  overflow: hidden;
+  background: #101319;
+  border-right: 1px solid rgba(13, 14, 18, 0.9);
+}
+.lp-video-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  /* 固定宽高比 + 裁切填充：允许边缘裁切，绝不变形拉伸。 */
+  object-fit: cover;
+  object-position: center;
+  filter: brightness(0.85) saturate(0.9);
+}
+.lp-video-slot:hover .lp-video-img {
+  filter: brightness(1) saturate(1);
+}
+/* 未生成时的清晰深色占位块：不放大任何邻近图片。 */
+.lp-video-placeholder {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: repeating-linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.02) 0,
+    rgba(255, 255, 255, 0.02) 1px,
+    transparent 1px,
+    transparent 12px
+  );
+}
+/* 镜头叠加层：只画边界与文字，不决定帧的宽度（叠加在视频轨之上）。 */
+.lp-shot-overlay-block {
+  position: absolute;
+  top: var(--timeline-scale-h);
+  bottom: 0;
+  padding: 2px 6px;
+  display: flex;
+  align-items: flex-start;
+  gap: 5px;
+  overflow: hidden;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.42), rgba(0, 0, 0, 0.04) 60%);
+  border-left: 1px solid rgba(255, 255, 255, 0.24);
+  border-right: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--g-text-1);
+  cursor: pointer;
+  z-index: 2;
+}
+.lp-timeline-ruler.has-structure-tracks .lp-shot-overlay-block {
+  top: calc(var(--timeline-scale-h) + var(--timeline-structure-h) + 6px);
+}
+.lp-shot-overlay-block:hover {
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.52), rgba(0, 0, 0, 0.08) 60%);
+}
+.lp-shot-overlay-block.is-selected {
+  border-color: var(--g-blue);
+  background: rgba(110, 139, 255, 0.18);
+}
+.lp-shot-overlay-no {
+  color: var(--g-text);
+  font-size: 10px;
+  font-family: var(--g-font-mono);
+}
+.lp-shot-overlay-name {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--g-text-1);
+  font-size: 10px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.lp-shot-overlay-lock {
+  color: var(--g-warn);
+}
+.lp-filmstrip-notice {
+  color: var(--g-text-3);
+}
+.lp-filmstrip-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--g-text-3);
+  background:
+    repeating-linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.018) 0,
+      rgba(255, 255, 255, 0.018) 1px,
+      transparent 1px,
+      transparent 96px
+    ),
+    #101319;
+  pointer-events: none;
+}
+.lp-filmstrip-empty span {
+  color: var(--g-text-2);
+  font-size: 11px;
+}
+.lp-filmstrip-empty small {
+  color: var(--g-text-3);
+  font-size: 10px;
+}
+
+/* 刻度：主刻度弱灰文字，次刻度仅线条。 */
+.lp-tick-minor {
+  background: rgba(255, 255, 255, 0.06);
+}
+.lp-tick-major {
+  background: rgba(255, 255, 255, 0.1);
+}
+.lp-timeline-ruler.has-structure-tracks .lp-tick {
+  top: var(--timeline-scale-h);
+  bottom: 0;
+  z-index: 4;
+  height: auto;
+  pointer-events: none;
+}
+.lp-tick-label {
+  top: 6px;
+  z-index: 6;
+  color: var(--g-text-3);
+  font-family: var(--g-font-mono);
+  font-size: 10px;
+}
+
+/* 播放头：白色实线 + 顶部小三角。 */
+.lp-playhead-line {
+  z-index: 9;
+  background: var(--g-playhead);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.36);
+}
+.lp-playhead-cap {
+  background: var(--g-playhead);
+}
+
+/* 时间范围选区：淡蓝底。 */
+.lp-timeline-range {
+  top: var(--timeline-scale-h);
+  bottom: 0;
+  z-index: 5;
+  background: rgba(110, 139, 255, 0.12);
+  border-left: 1px solid var(--g-blue);
+  border-right: 1px solid var(--g-blue);
+}
+
+/* 结构轨 = 章节 / 段落两条（镜头不再独占一轨，已叠加到视频画面轨）。 */
+.lp-structure-tracks {
+  top: var(--timeline-scale-h);
+  height: var(--timeline-structure-h);
+  padding: 4px 0;
+  display: grid;
+  grid-template-rows: 1fr 1fr;
+  gap: 6px;
+  background: var(--g-bg);
+  overflow: hidden;
+}
+.lp-structure-track {
+  height: auto !important;
+  min-height: 0;
+  overflow: hidden;
+  background: #181c24;
+  border-top: 1px solid rgba(255, 255, 255, 0.035);
+  border-bottom: 1px solid var(--g-border);
+}
+.lp-structure-track.is-section {
+  background: #151a22;
+}
+
+.lp-structure-block {
+  top: 2px;
+  bottom: 2px;
+  min-width: 1px;
+  padding: 5px 9px;
+  border-radius: var(--g-r-sm);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  color: var(--g-text-1);
+  background: #222832;
+  gap: 7px;
+  line-height: 1.2;
+  container-type: inline-size;
+}
+.lp-structure-block.is-chapter {
+  background: #293140;
+  border-color: #394456;
+  color: var(--g-text);
+  font-weight: 600;
+}
+.lp-structure-block.is-section {
+  background: #202630;
+  border-color: #303846;
+  font-weight: 400;
+}
+.lp-structure-block.is-shot {
+  justify-content: flex-start;
+  background: #1b2129;
+  border-color: #2b333f;
+  color: var(--g-text-2);
+}
+.lp-structure-block:hover {
+  z-index: 3;
+  background: #303846;
+  border-color: #596579;
+}
+.lp-structure-block.is-in-chain {
+  border-color: rgba(110, 139, 255, 0.35);
+}
+.lp-structure-block.is-selected {
+  z-index: 4;
+  background: rgba(110, 139, 255, 0.2);
+  border-color: var(--g-blue);
+  color: var(--g-text);
+  box-shadow: inset 0 0 0 1px rgba(110, 139, 255, 0.22);
+}
+.lp-structure-block.is-locked {
+  opacity: 0.7;
+}
+.lp-structure-block-no {
+  flex: none;
+  font-family: var(--g-font-mono);
+  font-size: 10px;
+  color: var(--g-text-3);
+}
+.lp-structure-block-copy {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  justify-content: center;
+  gap: 3px;
+  overflow: hidden;
+}
+.lp-structure-block-name {
+  overflow: hidden;
+  color: inherit;
+  font-size: 11px;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.lp-structure-block-meta {
+  overflow: hidden;
+  color: var(--g-text-3);
+  font-family: var(--g-font-mono);
+  font-size: 9px;
+  font-weight: 400;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.lp-structure-block-lock {
+  flex: none;
+  color: var(--g-warn);
+  font-size: 7px;
+}
+@container (max-width: 74px) {
+  .lp-structure-block-copy {
+    display: none;
+  }
+  .lp-structure-block {
+    justify-content: center;
+    padding-inline: 2px;
+  }
+}
+
+/* 段落条（旧分段视图）。 */
+.lp-timeline-band {
+  background: #171a22;
+  color: var(--g-text-2);
+}
+.lp-timeline-boundary {
+  background: rgba(255, 255, 255, 0.12);
+}
+.lp-timeline-boundary.is-locked {
+  background: var(--g-warn);
+}
+
+/* 智能候选：青色。 */
+.lp-timeline-candidate {
+  top: var(--timeline-scale-h);
+  z-index: 8;
+  background: transparent;
+  border-left-color: var(--g-shot);
+}
+.lp-timeline-candidate-dot {
+  background: var(--g-shot);
+}
+
+/* 时间线底部工具条。 */
+.lp-timeline-bottom {
+  height: 40px;
+  background: var(--g-panel);
+  border-top: 1px solid var(--g-border);
+}
+.lp-tool-button {
+  background: transparent;
+  border: 1px solid var(--g-border);
+  border-radius: var(--g-r-sm);
+  color: var(--g-text-1);
+  height: 24px;
+}
+.lp-tool-button:hover {
+  background: var(--g-hover);
+  color: var(--g-text);
+}
+.lp-scrollbar {
+  background: #1b1f27;
+}
+.lp-scrollbar-thumb {
+  background: #39414f;
+  border-radius: 4px;
+}
+
+/* 结构块右键菜单 / 时间线右键。 */
+.lp-timeline-context {
+  background: var(--g-float);
+  border: 1px solid var(--g-border);
+  border-radius: var(--g-r-lg);
+  box-shadow: var(--g-shadow-float);
+  padding: 4px;
+  min-width: 160px;
+}
+
+/* ================================================================== */
+/* 6. 曲线 / 节点 / 标注 / 边界                                          */
+/* ================================================================== */
+
+.lp-curve-line {
+  stroke: var(--g-curve);
+}
+.lp-curve-halo {
+  stroke: var(--g-curve);
+}
+.lp-node-shape {
+  fill: var(--g-bg);
+  stroke: var(--g-curve);
+}
+.lp-node-shape.is-selected {
+  stroke: #ffffff;
+}
+.lp-node-ring {
+  stroke: var(--g-blue);
+}
+.lp-annotation-dot {
+  fill: var(--g-note);
+}
+.lp-annotation-label {
+  background: rgba(12, 14, 18, 0.82);
+  border-left: 2px solid var(--g-note);
+  color: var(--g-text);
+  border-radius: var(--g-r-sm);
+}
+.lp-annotation-label-time {
+  color: var(--g-text-3);
+  font-family: var(--g-font-mono);
+}
+.lp-boundary-line {
+  border-left: 1px dashed rgba(255, 255, 255, 0.16);
+}
+.lp-timeline-boundary.is-edge {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+/* ================================================================== */
+/* 7. 右侧结构大纲                                                      */
+/* ================================================================== */
+
+.lp-structure-panel {
+  background: var(--g-panel);
+}
+.lp-structure-search {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--g-border);
+}
+.lp-structure-row {
+  min-height: 28px;
+  border-radius: var(--g-r-sm);
+}
+.lp-structure-row:hover {
+  background: var(--g-hover);
+}
+.lp-structure-row.is-selected {
+  background: var(--g-blue-soft);
+  box-shadow: inset 2px 0 0 var(--g-blue);
+}
+.lp-structure-row.is-chapter .lp-structure-name {
+  font-weight: 600;
+  color: var(--g-text);
+}
+.lp-structure-row.is-section .lp-structure-name {
+  font-weight: 400;
+  color: var(--g-text-1);
+}
+.lp-structure-row.is-shot .lp-structure-name {
+  color: var(--g-text-2);
+}
+.lp-structure-no,
+.lp-structure-time {
+  color: var(--g-text-3);
+  font-size: 10px;
+}
+.lp-structure-label {
+  border-radius: var(--g-r-sm);
+}
+.lp-structure-inspector {
+  border-top: 1px solid var(--g-border);
+  background: var(--g-panel);
+}
+.lp-structure-breadcrumb {
+  color: var(--g-text-3);
+}
+
+/* ================================================================== */
+/* 8. 项目库首页                                                        */
+/* ================================================================== */
+
+.home-topbar {
+  min-height: 56px;
+  padding: 0 clamp(20px, 3vw, 40px);
+  background: var(--g-bg);
+  border-bottom: 1px solid var(--g-border);
+  backdrop-filter: none;
+}
+.home-brand-copy h1,
+.home-topbar h1 {
+  font-size: 16px;
+  font-weight: 600;
+}
+.home-search {
+  background: var(--g-input);
+  border: 1px solid var(--g-border);
+  border-radius: var(--g-r-sm);
+  height: 30px;
+}
+.home-grid {
+  gap: 8px;
+}
+.home-card {
+  background: var(--g-panel);
+  border: 1px solid var(--g-border);
+  border-radius: var(--g-r-md);
+  box-shadow: none;
+}
+.home-card:hover {
+  background: #191d25;
+  border-color: var(--g-border-strong);
+}
+.home-card--missing {
+  border-color: rgba(233, 162, 59, 0.5);
+}
+.home-card-cover {
+  border-radius: var(--g-r-sm);
+}
+.home-card-name {
+  font-size: var(--g-fs-body);
+  font-weight: 600;
+}
+.home-card-source,
+.home-card-meta {
+  color: var(--g-text-2);
+  font-size: var(--g-fs-help);
+}
+.home-card-button {
+  border-radius: var(--g-r-sm);
+}
+.home-badge {
+  border-radius: var(--g-r-sm);
+  font-size: 10px;
+}
+.home-badge--missing {
+  color: var(--g-warn);
+  border-color: rgba(233, 162, 59, 0.5);
+  background: rgba(233, 162, 59, 0.1);
+}
+.home-badge--ready {
+  color: var(--g-text-2);
+  border-color: var(--g-border);
+}
+.home-card-menu-popover {
+  background: var(--g-float);
+  border: 1px solid var(--g-border);
+  border-radius: var(--g-r-lg);
+  box-shadow: var(--g-shadow-float);
+}
+.home-empty-title {
+  font-size: var(--g-fs-title);
+  font-weight: 600;
+}
+
+/* ================================================================== */
+/* 9. 导入 / 弹窗                                                       */
+/* ================================================================== */
+
+.dialog-backdrop {
+  background: rgba(4, 5, 8, 0.6);
+}
+.dialog {
+  background: var(--g-float);
+  border: 1px solid var(--g-border);
+  border-radius: var(--g-r-lg);
+  box-shadow: var(--g-shadow-float);
+}
+.dialog h2,
+.dialog-title {
+  font-size: var(--g-fs-title);
+  font-weight: 600;
+}
+.import-header h1,
+.import-page h1 {
+  font-size: var(--g-fs-title);
+  font-weight: 600;
+}
+.import-page {
+  border: 1px solid var(--g-border);
+  border-radius: var(--g-r-md);
+  background: var(--g-panel);
+}
+.import-body {
+  border-color: var(--g-border);
+  border-radius: var(--g-r-sm);
+  background: var(--g-workspace);
+}
+.import-step {
+  border-color: transparent;
+  border-radius: var(--g-r-sm);
+  background: transparent;
+}
+.import-step--active {
+  border-color: rgba(110, 139, 255, 0.28);
+  background: var(--g-blue-soft);
+}
+.import-progress-track {
+  background: var(--g-input);
+  border-radius: var(--g-r-sm);
+}
+.import-progress-fill {
+  background: var(--g-blue);
+}
+.import-step--done {
+  color: var(--g-ok);
+}
+.import-step--active {
+  color: var(--g-text);
+}
+
+/* ================================================================== */
+/* 10. Toast / 确认 / 任务中心                                          */
+/* ================================================================== */
+
+.toast {
+  background: var(--g-float);
+  border: 1px solid var(--g-border);
+  border-radius: var(--g-r-lg);
+  box-shadow: var(--g-shadow-float);
+  color: var(--g-text);
+}
+.toast--success {
+  border-left: 2px solid var(--g-ok);
+}
+.toast--info {
+  border-left: 2px solid var(--g-blue);
+}
+.toast--error {
+  border-left: 2px solid var(--g-err);
+}
+.toast-action {
+  border-radius: var(--g-r-sm);
+}
+.dialog--confirm {
+  background: var(--g-float);
+  border: 1px solid var(--g-border);
+  border-radius: var(--g-r-lg);
+  box-shadow: var(--g-shadow-float);
+}
+.danger-button {
+  background: var(--g-err);
+  border-color: var(--g-err);
+  color: #0c0e12;
+}
+.feedback-banner {
+  background: var(--g-float);
+  border-bottom: 1px solid var(--g-border);
+}
+.feedback-banner--error {
+  border-left: 2px solid var(--g-err);
+}
+.feedback-banner--info {
+  border-left: 2px solid var(--g-blue);
+}
+.task-center-panel {
+  background: var(--g-float);
+  border: 1px solid var(--g-border);
+  border-radius: var(--g-r-lg);
+  box-shadow: var(--g-shadow-float);
+}
+.task-row--failed {
+  border-left: 2px solid var(--g-err);
+}
+.task-row--succeeded {
+  border-left: 2px solid var(--g-ok);
+}
+
+/* ================================================================== */
+/* 11. 分割线 / 拖动：不加缓动（方案 §17）                              */
+/* ================================================================== */
+
+.lp-splitter,
+.lp-panel-splitter,
+.lp-playhead-line,
+.lp-playhead-cursor,
+.lp-structure-block,
+.lp-timeline-candidate {
+  transition: none;
+}
+.lp-splitter:hover::before,
+.lp-panel-splitter:hover::before {
+  transition: background var(--g-t-hover) ease;
+}
+
+/* ================================================================== */
+/* 12. 空状态与错误状态（颜色 + 文字，不只靠颜色）                       */
+/* ================================================================== */
+
+.lp-props-empty,
+.home-empty-title,
+.task-center-header {
+  color: var(--g-text-2);
+}
+[role='alert'] {
+  color: var(--g-err);
+}
+/* ================================================================== */
+/* 13. 顶部栏弹出菜单（导出 / 图层）与菜单项                             */
+/* ================================================================== */
+
+.lp-export-popover,
+.lp-layers-popover {
+  background: var(--g-float);
+  border: 1px solid var(--g-border);
+  border-radius: var(--g-r-lg);
+  box-shadow: var(--g-shadow-float);
+}
+.lp-menu-button {
+  min-height: 30px;
+  padding: 0 10px;
+  border-radius: var(--g-r-sm);
+  color: var(--g-text-1);
+  text-align: left;
+  background: transparent;
+  border: 1px solid transparent;
+}
+.lp-menu-button:hover {
+  background: var(--g-hover);
+  color: var(--g-text);
+}
+.lp-layer-row {
+  color: var(--g-text-1);
+}
+.lp-layer-hint,
+.lp-layer-value {
+  color: var(--g-text-3);
+}
+.lp-preset-button {
+  border-radius: var(--g-r-sm);
+  border: 1px solid var(--g-border);
+  background: transparent;
+  color: var(--g-text-1);
+}
+.lp-preset-button:hover {
+  background: var(--g-hover);
+  color: var(--g-text);
+}
