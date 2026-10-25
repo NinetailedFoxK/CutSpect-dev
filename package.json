@@ -1,7 +1,7 @@
 {
   "name": "laipian-tai",
   "productName": "CutSpect",
-  "version": "0.10.0",
+  "version": "0.10.1",
   "description": "离线桌面拉片与视频节奏分析工具",
   "private": false,
   "license": "MIT",
