@@ -29,6 +29,7 @@ import { runExport } from './services/export-runner';
 import type { ProjectService } from './services/project-service';
 import type { SettingsService } from './services/settings-service';
 import type { TaskManager } from './services/tasks';
+import type { UpdateService } from './update/service';
 
 /**
  * IPC handler 注册（规格 12.4 / 12.5）。
@@ -46,6 +47,7 @@ export interface IpcDeps {
   tasks: TaskManager;
   exports: ExportService;
   settings: SettingsService;
+  updates: UpdateService;
   allowWindowClose(event: IpcMainInvokeEvent): void;
 }
 
@@ -353,10 +355,23 @@ const shotRangeSchema = z.object({
 /* ------------------------------------------------------------------ */
 
 export function registerIpcHandlers(deps: IpcDeps): void {
-  const { projects, tasks, exports, settings } = deps;
+  const { projects, tasks, exports, settings, updates } = deps;
 
   registerHandler(IPC_CHANNELS.appConfirmClose, z.void(), async (_params, event) => {
     deps.allowWindowClose(event);
+    return ok(null);
+  });
+
+  /* 自动更新（公开更新源）：只暴露状态、手动检查与用户确认后的重启安装。 */
+  registerHandler(IPC_CHANNELS.updateGetState, z.void(), async () => ok(updates.getState()));
+
+  registerHandler(IPC_CHANNELS.updateCheck, z.void(), async () => {
+    updates.check(true);
+    return ok(null);
+  });
+
+  registerHandler(IPC_CHANNELS.updateInstall, z.void(), async () => {
+    updates.install();
     return ok(null);
   });
 

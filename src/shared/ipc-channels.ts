@@ -59,18 +59,27 @@ export const IPC_CHANNELS = {
   /* 应用窗口关闭：先让 renderer 刷新项目保存队列，再由 main 真正关闭。 */
   appConfirmClose: 'app:confirm-close',
 
+  /* 自动更新（公开更新源；仅暴露状态，不含任何 Token / 私有地址） */
+  updateGetState: 'update:get-state',
+  updateCheck: 'update:check',
+  updateInstall: 'update:install',
+
   /* main → renderer 单向事件：后台任务进度/状态/取消推送 */
   taskEvent: 'task:event',
   appCloseRequested: 'app:close-requested',
+  updateEvent: 'update:event',
 } as const;
 
 /** 所有 invoke 型通道（可从通道名反查，用于注册表驱动）。 */
 export type IpcInvokeChannel = Exclude<
   (typeof IPC_CHANNELS)[keyof typeof IPC_CHANNELS],
-  typeof IPC_CHANNELS.taskEvent | typeof IPC_CHANNELS.appCloseRequested
+  | typeof IPC_CHANNELS.taskEvent
+  | typeof IPC_CHANNELS.appCloseRequested
+  | typeof IPC_CHANNELS.updateEvent
 >;
 
 /** main → renderer 的事件通道。 */
 export type IpcEventChannel =
   | typeof IPC_CHANNELS.taskEvent
-  | typeof IPC_CHANNELS.appCloseRequested;
+  | typeof IPC_CHANNELS.appCloseRequested
+  | typeof IPC_CHANNELS.updateEvent;

@@ -21,6 +21,7 @@ import { feedbackStore, taskCenterStore } from './feedback/instance';
 import { createSaveCoordinator } from './editor/save-coordinator';
 import type { SaveCoordinator } from './editor/save-coordinator';
 import { currentAdapter } from '../platform/common';
+import { UpdateBanner } from './components/UpdateBanner';
 
 const PLATFORM = currentAdapter();
 
@@ -290,28 +291,36 @@ function EditorHost({ opened, onExit }: { opened: OpenedProject; onExit: () => v
   }, [flushSave, opened.snapshot.id, showSaveBlockedBanner]);
 
   const history = historyRef.current;
+  /** 安装更新前先落盘当前项目（避免视频处理/保存中途被强制退出）。 */
+  const installUpdateAfterSave = async (): Promise<void> => {
+    await flushSave();
+    await window.laipian?.updates.install();
+  };
   return (
-    <Editor
-      snapshot={snapshot}
-      mediaSrc={opened.mediaUrl ?? ''}
-      onClose={() => void handleExit()}
-      onViewChange={handleViewChange}
-      onContentChange={handleContentChange}
-      canUndo={history.canUndo()}
-      canRedo={history.canRedo()}
-      onUndo={handleUndo}
-      onRedo={handleRedo}
-      onSaveRequested={async () => {
-        await flushSave();
-      }}
-      saveStatus={saveStatus}
-      saveError={saveError}
-      lastSavedAt={lastSavedAt}
-      onRetrySave={() => void flushSave()}
-      recovery={recovery}
-      onRestoreRecovery={() => void handleRestoreRecovery()}
-      onDiscardRecovery={() => void handleDiscardRecovery()}
-    />
+    <>
+      <Editor
+        snapshot={snapshot}
+        mediaSrc={opened.mediaUrl ?? ''}
+        onClose={() => void handleExit()}
+        onViewChange={handleViewChange}
+        onContentChange={handleContentChange}
+        canUndo={history.canUndo()}
+        canRedo={history.canRedo()}
+        onUndo={handleUndo}
+        onRedo={handleRedo}
+        onSaveRequested={async () => {
+          await flushSave();
+        }}
+        saveStatus={saveStatus}
+        saveError={saveError}
+        lastSavedAt={lastSavedAt}
+        onRetrySave={() => void flushSave()}
+        recovery={recovery}
+        onRestoreRecovery={() => void handleRestoreRecovery()}
+        onDiscardRecovery={() => void handleDiscardRecovery()}
+      />
+      <UpdateBanner onInstall={installUpdateAfterSave} />
+    </>
   );
 }
 
@@ -562,6 +571,8 @@ export function App() {
       )}
 
       {stage.page === 'editor' && <EditorHost opened={stage.opened} onExit={backToHome} />}
+
+      <UpdateBanner />
 
       <FeedbackHost />
       <TaskCenter />

@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { existsSync } from 'node:fs';
 import { mkdir, mkdtemp, readdir, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -21,6 +22,9 @@ import type { ProjectSnapshot } from '../src/shared/api-types';
  */
 
 const hasFfprobe = resolveFfmpegPaths().ffprobe !== null;
+const DEV_VIDEO_PATH = fileURLToPath(new URL('../dev-assets/dev-test.mp4', import.meta.url));
+/** 素材存在才可跑真实素材测试（dev-assets 被 .gitignore 排除，CI / 新机器可能没有）。 */
+const hasDevVideo = existsSync(DEV_VIDEO_PATH);
 
 const cleanups: string[] = [];
 afterEach(async () => {
@@ -51,9 +55,9 @@ async function findFolder(destDir: string): Promise<string> {
   return path.join(destDir, folder);
 }
 
-describe.skipIf(!hasFfprobe)('真实媒体导入闭环（真实 ffprobe，规格 10.1 / 阶段 A）', () => {
+describe.skipIf(!hasFfprobe || !hasDevVideo)('真实媒体导入闭环（真实 ffprobe，规格 10.1 / 阶段 A）', () => {
   it('导入基线视频 → 真实探测信息 → 复制校验 → 重开可播放', async () => {
-    const sourcePath = fileURLToPath(new URL('../dev-assets/dev-test.mp4', import.meta.url));
+    const sourcePath = DEV_VIDEO_PATH;
     const root = await mkdtemp(path.join(tmpdir(), 'laipian-real-'));
     cleanups.push(root);
     const destDir = path.join(root, 'projects');

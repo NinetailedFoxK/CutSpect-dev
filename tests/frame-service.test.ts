@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs';
 import { mkdir, mkdtemp, readFile, readdir, rm, utimes, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -204,9 +205,11 @@ describe('pruneFrames（LRU 上限）', () => {
 });
 const hasFfmpeg = resolveFfmpegPaths().ffmpeg !== null;
 const DEV_VIDEO = fileURLToPath(new URL('../dev-assets/dev-test.mp4', import.meta.url));
+/** 素材存在才可跑真实素材测试（dev-assets 被 .gitignore 排除，CI / 新机器可能没有）。 */
+const hasDevVideo = existsSync(DEV_VIDEO);
 
 describe('getFramePreview（真实 ffmpeg）', () => {
-  it.skipIf(!hasFfmpeg)('抽取真实 JPEG，二次请求命中缓存', async () => {
+  it.skipIf(!hasFfmpeg || !hasDevVideo)('抽取真实 JPEG，二次请求命中缓存', async () => {
     const folder = await tempDir();
     const media = makeMedia({ durationMs: 10_000, sha256: 'e'.repeat(64) });
     const options = {

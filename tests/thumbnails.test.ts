@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs';
 import { readFile, readdir, mkdtemp, rm, mkdir, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -24,6 +25,8 @@ import {
 
 const hasFfmpeg = resolveFfmpegPaths().ffmpeg !== null;
 const DEV_VIDEO = fileURLToPath(new URL('../dev-assets/dev-test.mp4', import.meta.url));
+/** 素材存在才可跑真实素材测试（dev-assets 被 .gitignore 排除，CI / 新机器可能没有）。 */
+const hasDevVideo = existsSync(DEV_VIDEO);
 
 const cleanups: string[] = [];
 afterEach(async () => {
@@ -63,7 +66,7 @@ describe('generateThumbnails（规格 10.3 / 10.4）', () => {
     if (!result.ok) expect(result.error.code).toBe('THUMBNAIL_FAILED');
   });
 
-  it.skipIf(!hasFfmpeg)('真实 ffmpeg：生成缩略图与封面，二次调用命中缓存', async () => {
+  it.skipIf(!hasFfmpeg || !hasDevVideo)('真实 ffmpeg：生成缩略图与封面，二次调用命中缓存', async () => {
     const folder = await tempDir();
     await mkdir(thumbsDir(folder), { recursive: true });
     const sha = 'b'.repeat(64);

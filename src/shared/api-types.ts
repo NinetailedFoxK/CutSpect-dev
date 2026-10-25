@@ -13,6 +13,7 @@
  */
 
 import type { ProjectStyle } from './style';
+import type { UpdateState } from './update';
 
 /* ------------------------------------------------------------------ */
 /* 统一返回类型                                                         */
@@ -821,6 +822,24 @@ export interface LaipianApi {
     /** 写入应用级设置（main 侧再次校验，非法键位条目丢弃）。 */
     set(params: SettingsSetParams): Promise<Result<AppSettings>>;
   };
+
+  /**
+   * 自动更新（更新源为公开发布仓库 / Electron 官方托管，不含任何 GitHub Token）。
+   * 状态由 main 主动推送到 renderer；安装必须由用户确认后触发。
+   */
+  updates: UpdateApi;
+}
+
+/** 自动更新对外接口（preload 转发；状态中不含 Token / 私有地址）。 */
+export interface UpdateApi {
+  /** 读取当前更新状态（首次挂载补齐，避免错过早期事件）。 */
+  getState(): Promise<Result<UpdateState>>;
+  /** 主动检查更新（开发环境或未配置更新源时返回 disabled 状态）。 */
+  check(): Promise<Result<null>>;
+  /** 用户确认后重启并安装已下载的更新（非 ready 状态为空操作）。 */
+  install(): Promise<Result<null>>;
+  /** 订阅更新状态变化；返回退订函数。 */
+  subscribe(listener: (state: UpdateState) => void): () => void;
 }
 
 /** 应用级设置（全局，跨项目保存于 userData/settings.json）。 */

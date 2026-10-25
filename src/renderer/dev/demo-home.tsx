@@ -325,6 +325,19 @@ function DemoApp() {
         get: async () => ok({ keymap: {} }),
         set: async () => ok({ keymap: {} }),
       },
+      updates: {
+        getState: async () =>
+          ok({
+            status: 'disabled' as const,
+            version: null,
+            percent: null,
+            message: null,
+            canInstall: false,
+          }),
+        check: async () => ok(null),
+        install: async () => ok(null),
+        subscribe: () => () => undefined,
+      },
     };
   }, []);
 

@@ -43,6 +43,14 @@ const VERSION = readPackageVersion();
 const IS_MAC = process.platform === 'darwin';
 const IS_WINDOWS = process.platform === 'win32';
 
+/**
+ * 构建时注入的更新配置（由 scripts/write-update-config.cjs 生成）：
+ * 含公开发布仓库名；不进 asar，放应用 resources 目录由运行时读取。
+ * 文件缺失时不影响打包（应用将自动禁用更新）。
+ */
+const updateConfigPath = path.resolve(process.cwd(), 'build', 'update-config.json');
+const hasUpdateConfig = existsSync(updateConfigPath);
+
 const config: ForgeConfig = {
   packagerConfig: {
     appBundleId: 'com.cutspec.desktop',
@@ -52,6 +60,8 @@ const config: ForgeConfig = {
       unpack: '**/node_modules/{ffmpeg-static,@ffprobe-installer/**}/**',
     },
     icon: 'assets/icon',
+    // 构建时注入的更新配置（含公开发布仓库名）：放 resources 供运行时读取。
+    extraResource: hasUpdateConfig ? ['build/update-config.json'] : [],
     // Windows 内部程序名与可执行文件使用稳定英文标识（界面仍显示「拉片台」）。
     // macOS 保持既有可执行名不变，避免影响既有签名/产物。
     ...(IS_WINDOWS ? { executableName: 'laipian-tai' } : {}),

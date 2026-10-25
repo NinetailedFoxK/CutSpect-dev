@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs';
 import { mkdtemp, readFile, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -24,6 +25,8 @@ import { ok } from '../src/shared/api-types';
 
 const hasFfmpeg = resolveFfmpegPaths().ffmpeg !== null && resolveFfmpegPaths().ffprobe !== null;
 const DEV_VIDEO = fileURLToPath(new URL('../dev-assets/dev-test.mp4', import.meta.url));
+/** 素材存在才可跑真实素材测试（dev-assets 被 .gitignore 排除，CI / 新机器可能没有）。 */
+const hasDevVideo = existsSync(DEV_VIDEO);
 
 const cleanups: string[] = [];
 afterEach(async () => {
@@ -120,7 +123,7 @@ describe('createCompatibleCopy（规格 10.2 失败与清理）', () => {
     await expect(stat(`${target}.partial`)).rejects.toThrow();
   });
 
-  it.skipIf(!hasFfmpeg)('真实 ffmpeg：生成可播 WebM（VP8/Opus，时长≈10s）', async () => {
+  it.skipIf(!hasFfmpeg || !hasDevVideo)('真实 ffmpeg：生成可播 WebM（VP8/Opus，时长≈10s）', async () => {
     const dir = await tempDir();
     const target = path.join(dir, 'playback.webm');
     const result = await createCompatibleCopy({

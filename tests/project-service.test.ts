@@ -1,4 +1,6 @@
 import { createHash } from 'node:crypto';
+import { spawn } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import { mkdir, mkdtemp, readFile, readdir, rm, writeFile, access } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -255,13 +257,24 @@ describe('openProjectFolder / 校验（规格 9.3 / F04）', () => {
       },
     });
     await writeFile(path.join(folder, 'project.json'), JSON.stringify(snapshot));
-    // pid 1 始终存活（macOS 非 root 下 kill(1,0) 抛 EPERM → 视为存活）。
-    await writeFile(path.join(folder, '.lock'), JSON.stringify({ pid: 1, at: new Date().toISOString() }));
+    // 锁判定要求 pid ≠ 当前进程且进程存活（project-service.ts:277）：这里启动一个真实
+    // 存活的子进程持有锁，Windows / macOS 语义一致（原先写死 pid 1 仅在 unix 语义下成立）。
+    const holder = spawn(process.execPath, ['-e', 'setTimeout(() => {}, 30000)'], { stdio: 'ignore' });
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      const holderPid = holder.pid as number;
+      await writeFile(
+        path.join(folder, '.lock'),
+        JSON.stringify({ pid: holderPid, at: new Date().toISOString() }),
+      );
 
-    const opened = await harness.services.openProjectFolder(folder);
-    expect(opened.ok).toBe(false);
-    if (!opened.ok) {
-      expect(opened.error.code).toBe('PROJECT_LOCKED');
+      const opened = await harness.services.openProjectFolder(folder);
+      expect(opened.ok).toBe(false);
+      if (!opened.ok) {
+        expect(opened.error.code).toBe('PROJECT_LOCKED');
+      }
+    } finally {
+      holder.kill();
     }
   });
 });
@@ -435,7 +448,7 @@ describe('removeRecent / 重命名 / 关闭（规格 2.2 / 8.4 / 8.5）', () => 
 describe('封面后台补建（规格 2.2 卡片封面占位）', () => {
   const devVideo = path.resolve('dev-assets', 'dev-test.mp4');
 
-  it('缺少封面的旧项目在列表读取时自动补建封面', async () => {
+  it.skipIf(!existsSync(devVideo))('缺少封面的旧项目在列表读取时自动补建封面', async () => {
     const harness = await setup(devVideo);
     const projectId = await createAndReady(harness, '缺封面项目');
     const folder = await findProjectFolder(harness.destDir);

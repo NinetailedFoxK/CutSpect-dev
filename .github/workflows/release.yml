@@ -1,18 +1,44 @@
 name: release
 
-# 推送 v* 标签触发：一个版本一个标签（例如 v0.10.0）。
-# macOS 产出 DMG + ZIP；Windows 产出 Setup.exe + ZIP；统一上传到同一个 GitHub Release。
+# 推送 v* 标签触发：在私有开发仓库构建，产物发布到「公开发布仓库」的 Release。
+# 普通用户只看到公开发布仓库（安装包 + 更新文件 + latest.json），看不到任何源码。
+#
+# 需要在「私有开发仓库」配置（Settings → Secrets and variables → Actions）：
+#   Secrets  → RELEASE_REPO_TOKEN：fine-grained PAT，Repository access 仅选「公开发布仓库」，
+#              Permissions 仅勾选 Contents: Read and write（最小权限）。
+#   Variables→ RELEASE_REPO：公开发布仓库 owner/repo，例如 ZevinZhao/CutSpect-downloads。
+# 缺少任一配置时，guard 任务会在构建前直接失败并提示（绝不伪造发布成功）。
 on:
   push:
     tags:
       - 'v*'
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
+  guard:
+    name: 校验发布配置
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检查 RELEASE_REPO / RELEASE_REPO_TOKEN
+        env:
+          RELEASE_REPO_VALUE: ${{ vars.RELEASE_REPO }}
+          RELEASE_TOKEN: ${{ secrets.RELEASE_REPO_TOKEN }}
+        run: |
+          if [ -z "${RELEASE_REPO_VALUE}" ]; then
+            echo "::error::缺少仓库变量 RELEASE_REPO。请到 Settings → Secrets and variables → Actions → Variables 新建名为 RELEASE_REPO 的变量，值为公开发布仓库 owner/repo。"
+            exit 1
+          fi
+          if [ -z "${RELEASE_TOKEN}" ]; then
+            echo "::error::缺少仓库密钥 RELEASE_REPO_TOKEN。请到 Settings → Secrets and variables → Actions → Secrets 新建，值为对公开发布仓库仅有 Contents: Read and write 权限的 fine-grained PAT。"
+            exit 1
+          fi
+          echo "发布目标仓库：${RELEASE_REPO_VALUE}"
+
   macos:
     name: build macOS package
+    needs: [guard]
     runs-on: macos-latest
     steps:
       - name: Checkout
@@ -29,7 +55,9 @@ jobs:
       - name: 类型检查 + 测试 + 构建
         run: npm run verify
 
-      - name: 打包 macOS（DMG + ZIP）
+      - name: 打包 macOS（DMG + ZIP）+ 注入公开更新源
+        env:
+          LAIPIAN_RELEASE_REPO: ${{ vars.RELEASE_REPO }}
         run: npm run make:mac
 
       - name: 收集并规范命名产物
@@ -57,6 +85,7 @@ jobs:
 
   windows:
     name: build Windows package
+    needs: [guard]
     runs-on: windows-latest
     steps:
       - name: Checkout
@@ -73,10 +102,12 @@ jobs:
       - name: 类型检查 + 测试 + 构建
         run: npm run verify
 
-      - name: 打包 Windows（Setup.exe + ZIP）
+      - name: 打包 Windows（Setup.exe + ZIP + Squirrel 更新文件）+ 注入公开更新源
+        env:
+          LAIPIAN_RELEASE_REPO: ${{ vars.RELEASE_REPO }}
         run: npm run make:win
 
-      - name: 收集并规范命名产物
+      - name: 收集产物（含 RELEASES 与 .nupkg，缺一不可用于自动更新）
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
@@ -86,6 +117,8 @@ jobs:
           if (-not $exes) { $exes = Get-ChildItem -Path out/make -Recurse -File | Where-Object { $_.Extension -eq '.exe' } }
           $exes | Select-Object -First 1 | ForEach-Object { Copy-Item $_.FullName "dist-artifacts/LaipianTai-$ver-Windows-x64-Setup.exe" -Force }
           Get-ChildItem -Path out/make -Recurse -File -Filter *.zip | ForEach-Object { Copy-Item $_.FullName "dist-artifacts/LaipianTai-$ver-Windows-x64.zip" -Force }
+          Get-ChildItem -Path out/make -Recurse -File -Filter RELEASES | ForEach-Object { Copy-Item $_.FullName "dist-artifacts/RELEASES" -Force }
+          Get-ChildItem -Path out/make -Recurse -File | Where-Object { $_.Extension -eq '.nupkg' } | ForEach-Object { Copy-Item $_.FullName "dist-artifacts/$($_.Name)" -Force }
           Get-ChildItem dist-artifacts
 
       - name: 上传 Windows 产物
@@ -95,8 +128,8 @@ jobs:
           path: dist-artifacts/*
           if-no-files-found: error
 
-  release:
-    name: publish GitHub Release
+  publish:
+    name: publish to public release repo
     needs: [macos, windows]
     runs-on: ubuntu-latest
     steps:
@@ -107,7 +140,7 @@ jobs:
         run: |
           VER=$(node -p "require('./package.json').version")
           if [ "v${VER}" != "${GITHUB_REF_NAME}" ]; then
-            echo "版本不一致：标签 ${GITHUB_REF_NAME} 与 package.json v${VER} 不匹配。"
+            echo "::error::标签 ${GITHUB_REF_NAME} 与 package.json v${VER} 不一致，拒绝发布。"
             exit 1
           fi
 
@@ -116,8 +149,25 @@ jobs:
         with:
           path: artifacts
 
-      - name: 创建 Release
+      - name: 生成 latest.json（公开更新清单）
+        env:
+          RELEASE_REPO: ${{ vars.RELEASE_REPO }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: node scripts/write-latest-json.cjs artifacts
+
+      - name: 列出待发布文件（确认无源码混入）
+        run: |
+          find artifacts -type f | sort
+          echo "--- latest.json ---"
+          cat artifacts/latest.json
+
+      - name: 发布到公开发布仓库（仅安装包、更新文件与 latest.json）
         uses: softprops/action-gh-release@v2
         with:
+          repository: ${{ vars.RELEASE_REPO }}
+          token: ${{ secrets.RELEASE_REPO_TOKEN }}
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          body_path: CHANGELOG.md
+          generate_release_notes: false
           files: artifacts/**/*
-          generate_release_notes: true

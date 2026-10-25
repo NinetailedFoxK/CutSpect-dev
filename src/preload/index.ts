@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import type { IpcRendererEvent } from 'electron';
 import type { LaipianApi, TaskEvent } from '../shared/api-types';
+import type { UpdateState } from '../shared/update';
 import { IPC_CHANNELS } from '../shared/ipc-channels';
 import type { IpcInvokeChannel } from '../shared/ipc-channels';
 
@@ -82,9 +83,23 @@ const api: LaipianApi = {
     reveal: (params) => invoke(IPC_CHANNELS.exportsReveal, params),
     open: (params) => invoke(IPC_CHANNELS.exportsOpen, params),
   },
-  settings: {
+settings: {
     get: () => invoke(IPC_CHANNELS.settingsGet),
     set: (params) => invoke(IPC_CHANNELS.settingsSet, params),
+  },
+  updates: {
+    getState: () => invoke(IPC_CHANNELS.updateGetState),
+    check: () => invoke(IPC_CHANNELS.updateCheck),
+    install: () => invoke(IPC_CHANNELS.updateInstall),
+    subscribe(listener: (state: UpdateState) => void): () => void {
+      const wrapped = (_event: IpcRendererEvent, state: UpdateState): void => {
+        listener(state);
+      };
+      ipcRenderer.on(IPC_CHANNELS.updateEvent, wrapped);
+      return () => {
+        ipcRenderer.removeListener(IPC_CHANNELS.updateEvent, wrapped);
+      };
+    },
   },
 };
 

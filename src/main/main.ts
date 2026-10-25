@@ -2,10 +2,12 @@ import path from 'node:path';
 import { appendFileSync, existsSync, writeFileSync } from 'node:fs';
 import { mkdtemp, rm, stat as fsStat } from 'node:fs/promises';
 import { app, BrowserWindow, dialog, protocol, screen, shell } from 'electron';
-import { execFile } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
 import os from 'node:os';
 import { promisify } from 'node:util';
 import { registerIpcHandlers } from './ipc';
+import { handleSquirrelStartup } from './update/squirrel';
+import { setupAutoUpdate } from './update';
 import { createExportService } from './services/export-service';
 import { runExport } from './services/export-runner';
 import { frameQueueStats, requestFilmstripBatch } from './services/frame-queue';
@@ -760,6 +762,19 @@ async function runSmoke(win: BrowserWindow): Promise<void> {
   app.exit(0);
 }
 
+/** Squirrel 调用 Update.exe：分离进程、忽略 stdio，完成后 resolve。 */
+function spawnUpdateExe(command: string, args: readonly string[]): Promise<void> {
+  return new Promise((resolve) => {
+    try {
+      const child = spawn(command, [...args], { detached: true, stdio: 'ignore' });
+      child.on('error', () => resolve());
+      child.on('exit', () => resolve());
+    } catch {
+      resolve();
+    }
+  });
+}
+
 async function bootstrap(): Promise<void> {
   const tasks = createTaskManager();
   projectService = createProjectService({
@@ -798,6 +813,11 @@ async function bootstrap(): Promise<void> {
   // 应用级设置（v1.1 快捷键自定义）：全局 userData/settings.json。
   const settingsService = createSettingsService({ userDataDir: app.getPath('userData') });
 
+  // 自动更新：公开更新源；开发环境 / 未配置仓库时自动禁用（不打扰用户）。
+  const updateService = setupAutoUpdate({
+    log: (message) => process.stderr.write(`${message}\n`),
+  });
+
   // 任务事件 → 所有窗口（规格 10.4：进度/状态/取消推送）。
   tasks.subscribe((event) => {
     for (const win of BrowserWindow.getAllWindows()) {
@@ -823,6 +843,7 @@ async function bootstrap(): Promise<void> {
     tasks,
     exports: exportService,
     settings: settingsService,
+    updates: updateService,
     allowWindowClose: (event) => {
       const win = BrowserWindow.fromWebContents(event.sender);
       if (!win || win.isDestroyed()) return;
@@ -844,36 +865,57 @@ async function bootstrap(): Promise<void> {
   }
 }
 
-// 单实例锁：第二个实例直接退出并让已有实例聚焦（规格 8.5）。
-const gotSingleInstanceLock = app.requestSingleInstanceLock();
-if (!gotSingleInstanceLock) {
-  app.quit();
+// Windows Squirrel：安装/更新/卸载事件必须在创建窗口前处理，并尽快退出。
+// --squirrel-firstrun（首次安装启动）不接管，应用正常显示自身。
+const squirrelHandled =
+  process.platform === 'win32' &&
+  handleSquirrelStartup({
+    argv: process.argv,
+    execPath: process.execPath,
+    spawn: spawnUpdateExe,
+    quit: (code) => app.exit(code),
+    logger: (message) => process.stderr.write(`${message}\n`),
+  });
+
+// 与 Squirrel 生成的 AppUserModelId 保持一致（任务栏归组 / 通知 / 更新识别）。
+if (process.platform === 'win32') {
+  app.setAppUserModelId('com.squirrel.laipian-tai.laipian-tai');
+}
+
+if (squirrelHandled) {
+  // 已交由 Update.exe 维护快捷方式：等待其完成后由 quit 回调退出，不初始化应用。
 } else {
-  app.on('second-instance', () => {
-    if (mainWindow) {
-      if (mainWindow.isMinimized()) {
-        mainWindow.restore();
+  // 单实例锁：第二个实例直接退出并让已有实例聚焦（规格 8.5）。
+  const gotSingleInstanceLock = app.requestSingleInstanceLock();
+  if (!gotSingleInstanceLock) {
+    app.quit();
+  } else {
+    app.on('second-instance', () => {
+      if (mainWindow) {
+        if (mainWindow.isMinimized()) {
+          mainWindow.restore();
+        }
+        mainWindow.focus();
       }
-      mainWindow.focus();
-    }
-  });
+    });
 
-  void app.whenReady().then(bootstrap);
+    void app.whenReady().then(bootstrap);
 
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      mainWindow = createWindow();
-    }
-  });
+    app.on('activate', () => {
+      if (BrowserWindow.getAllWindows().length === 0) {
+        mainWindow = createWindow();
+      }
+    });
 
-  app.on('window-all-closed', () => {
-    if (process.platform !== 'darwin') {
-      app.quit();
-    }
-  });
+    app.on('window-all-closed', () => {
+      if (process.platform !== 'darwin') {
+        app.quit();
+      }
+    });
 
-  // 退出前释放项目锁并注销媒体注册（规格 8.4 / 8.5）。
-  app.on('before-quit', () => {
-    void projectService?.releaseAllLocks();
-  });
+    // 退出前释放项目锁并注销媒体注册（规格 8.4 / 8.5）。
+    app.on('before-quit', () => {
+      void projectService?.releaseAllLocks();
+    });
+  }
 }
