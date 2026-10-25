@@ -90,14 +90,17 @@ function createHarness(config: ResolvedUpdateConfig, isFirstRun = false) {
 }
 
 describe('更新地址配置（集中构造）', () => {
-  it('默认使用 Electron 官方托管地址', () => {
-    expect(buildUpdateFeedUrl('ZevinZhao/CutSpect-downloads', 'win32', 'x64', '0.10.0')).toBe(
-      'https://update.electronjs.org/ZevinZhao/CutSpect-downloads/win32/x64/0.10.0',
+  it('默认使用 Electron 官方托管地址（platform 后直接跟版本，不含 arch）', () => {
+    expect(buildUpdateFeedUrl('ZevinZhao/CutSpect-downloads', 'win32', '0.10.0')).toBe(
+      'https://update.electronjs.org/ZevinZhao/CutSpect-downloads/win32/0.10.0',
+    );
+    expect(buildUpdateFeedUrl('ZevinZhao/CutSpect-downloads', 'darwin', '0.10.0')).toBe(
+      'https://update.electronjs.org/ZevinZhao/CutSpect-downloads/darwin/0.10.0',
     );
   });
 
   it('自定义 feed 覆盖官方地址并去除末尾斜杠', () => {
-    expect(buildUpdateFeedUrl('x/y', 'win32', 'x64', '1.0.0', 'https://feed.example.com/')).toBe(
+    expect(buildUpdateFeedUrl('x/y', 'win32', '1.0.0', 'https://feed.example.com/')).toBe(
       'https://feed.example.com',
     );
   });

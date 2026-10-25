@@ -140,12 +140,13 @@ export const ELECTRON_UPDATE_SERVICE = 'https://update.electronjs.org';
 /**
  * 构造更新 feed 地址：
  * - 提供 feedBaseUrl 时直接使用（自建更新服务，末尾斜杠去掉）；
- * - 否则使用 Electron 官方托管：`https://update.electronjs.org/<owner/repo>/<platform>/<arch>/<version>`。
+ * - 否则使用 Electron 官方托管：`https://update.electronjs.org/<owner/repo>/<platform>/<version>`。
+ *   注意：官方服务在 platform 段之后**直接**是版本号，**不接受 arch** ——
+ *   `/win32/x64/1.0.0` 会被判为 `Invalid SemVer`（已实测返回 400）。
  */
 export function buildUpdateFeedUrl(
   repo: string,
   platform: string,
-  arch: string,
   currentVersion: string,
   feedBaseUrl?: string | null,
 ): string {
@@ -155,7 +156,7 @@ export function buildUpdateFeedUrl(
   }
   const cleanRepo = repo.trim().replace(/^\/+|\/+$/g, '');
   const cleanVersion = currentVersion.trim().replace(/^v/, '');
-  return `${ELECTRON_UPDATE_SERVICE}/${cleanRepo}/${platform}/${arch}/${cleanVersion}`;
+  return `${ELECTRON_UPDATE_SERVICE}/${cleanRepo}/${platform}/${cleanVersion}`;
 }
 
 /* ------------------------------------------------------------------ */
@@ -246,7 +247,7 @@ export function resolveUpdateConfig(input: UpdateRuntimeInput): ResolvedUpdateCo
     enabled: true,
     reason: null,
     repo: repo.length > 0 ? repo : null,
-    feedUrl: buildUpdateFeedUrl(repo, input.platform, input.arch, input.currentVersion, feedBase),
+    feedUrl: buildUpdateFeedUrl(repo, input.platform, input.currentVersion, feedBase),
   };
 }
 
