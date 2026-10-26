@@ -29,6 +29,7 @@ import type {
   ViewCanvasLayout,
 } from '@shared/api-types';
 import { clamp, clampViewRange, formatTimeMs } from '@shared/time';
+import { TIMELINE_VIEW_VERSION, migrateTimelineView } from '@shared/schema';
 import { formatClockTime } from '../lib/format';
 import { currentAdapter } from '../../platform/common';
 import { commandForEvent, commandForWheel, formatBinding } from '@shared/keymap';
@@ -839,6 +840,19 @@ export function Editor(props: EditorProps) {
     onViewChangeRef.current(next);
   }, []);
 
+  // §6.2：视图窗口做了一次性迁移（normalizeView）后写入迁移版本并触发一次保存持久化，
+  // 保证"只迁移一次"；原项目已含版本时不再触发（不重置用户已有缩放）。
+  const timelineViewMigratedRef = useRef(false);
+  useEffect(() => {
+    if (timelineViewMigratedRef.current) {
+      return;
+    }
+    timelineViewMigratedRef.current = true;
+    if (snapshot.view.timelineViewVersion === undefined) {
+      updateView({ timelineViewVersion: TIMELINE_VIEW_VERSION });
+    }
+  }, [snapshot.view.timelineViewVersion, updateView]);
+
   const [tool, setTool] = useState<ToolId>('select');
   const [drawSustained, setDrawSustained] = useState(false);
   /** 分析监视器视图模式：编辑视图显示节点/控制柄/网格；干净预览只显示成品。 */
@@ -933,7 +947,8 @@ export function Editor(props: EditorProps) {
     previewTimelineHeight ?? clampTimelineHeight(view.timelineHeight, timelineLimits);
 
   // —— 视图模式（方案 §2）：overlay 曲线覆盖视频 / sheet 视频与曲线分开 ——
-  const canvasLayout: ViewCanvasLayout = view.canvasLayout === 'sheet' ? 'sheet' : 'overlay';
+  // 默认谱面视图（sheet）：视频保持干净，需要对照曲线时再主动切换「叠加视图」。
+  const canvasLayout: ViewCanvasLayout = view.canvasLayout === 'overlay' ? 'overlay' : 'sheet';
 
   // 谱面视图额外占用读谱区的曲线谱面高度（方案 §8：向上拖动时优先把空间给曲线谱面）。
   const sheetCanvasHeight = canvasLayout === 'sheet' ? SHEET_CANVAS_HEIGHT : 0;
@@ -3031,13 +3046,15 @@ export function Editor(props: EditorProps) {
 }
 
 function normalizeView(view: ProjectView, durationMs: number): ProjectView {
-  const range = clampViewRange(view.viewStartMs, view.viewEndMs, durationMs, Math.min(1000, durationMs));
+  // §6.2：旧项目"接近全片"视图一次性迁到以播放头为中心的 120 秒窗口（幂等）。
+  const migrated = migrateTimelineView(view, durationMs);
+  const range = clampViewRange(migrated.viewStartMs, migrated.viewEndMs, durationMs, Math.min(1000, durationMs));
   // 旧项目普遍保存为 160/200px；三级结构启用后直接迁到新的可编辑默认高度，
   // 而不是只夹到最小值，避免用户首次打开仍看到被压扁的三条细轨。
   const requestedTimelineHeight =
-    view.timelineHeight < MIN_TIMELINE_HEIGHT ? DEFAULT_TIMELINE_HEIGHT : view.timelineHeight;
+    migrated.timelineHeight < MIN_TIMELINE_HEIGHT ? DEFAULT_TIMELINE_HEIGHT : migrated.timelineHeight;
   return {
-    ...view,
+    ...migrated,
     ...range,
     playheadMs: clamp(Math.round(view.playheadMs), 0, durationMs),
     videoOpacity: clamp(view.videoOpacity, 0, 1),

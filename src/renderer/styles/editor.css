@@ -585,8 +585,29 @@
 }
 
 .lp-follow-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   color: var(--lp-accent);
   border-color: var(--lp-accent);
+}
+
+/* 播放头与浏览范围分离时的文字提示 + 有文字的「回到播放头」按钮（§6.4）。 */
+.lp-follow-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--lp-text-dim);
+  font-size: 11px;
+  white-space: nowrap;
+}
+.lp-follow-hint-text {
+  color: var(--lp-warn, #d99a3a);
+}
+.lp-zoom-span {
+  color: var(--lp-text-dim);
+  font-size: 11px;
+  white-space: nowrap;
 }
 
 .lp-scrollbar {
