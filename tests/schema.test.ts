@@ -1,8 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import type { ProjectMedia, ProjectSnapshot } from '../src/shared/api-types';
+import type { ProjectMedia, ProjectSnapshot, ProjectView } from '../src/shared/api-types';
 import {
   createInitialSnapshot,
+  DEFAULT_VIEW_WINDOW_MS,
   isSafeProjectRelativePath,
+  migrateTimelineView,
+  needsTimelineViewMigration,
+  TIMELINE_VIEW_VERSION,
   validateProjectSnapshot,
 } from '../src/shared/schema';
 
@@ -53,6 +57,25 @@ describe('createInitialSnapshot（规格 5.1 / 7.1）', () => {
     expect(snapshot.boundaries).toHaveLength(2);
     expect(snapshot.sections).toHaveLength(1);
     expect(snapshot.sections[0]?.startBoundaryId).toBe(snapshot.boundaries[0]?.id);
+  });
+
+  it('默认视图窗口为片头 120 秒、默认为谱面视图（视频保持干净）', () => {
+    const longDuration = 14 * 60 * 1000 + 32_000; // 14:32
+    const snapshot = createInitialSnapshot({
+      projectId: 'p-long',
+      name: '长视频',
+      media: makeMedia({ durationMs: longDuration }),
+    });
+    expect(snapshot.view.viewStartMs).toBe(0);
+    expect(snapshot.view.viewEndMs).toBe(DEFAULT_VIEW_WINDOW_MS);
+    expect(snapshot.view.viewEndMs).toBeLessThan(longDuration);
+    expect(snapshot.view.canvasLayout).toBe('sheet');
+  });
+
+  it('短片默认窗口不超过总时长', () => {
+    const snapshot = validSnapshot();
+    expect(snapshot.view.viewEndMs).toBe(60_000);
+    expect(validateProjectSnapshot(snapshot).ok).toBe(true);
   });
 });
 
@@ -194,5 +217,53 @@ describe('isSafeProjectRelativePath（规格 11.3）', () => {
     expect(isSafeProjectRelativePath('../secret')).toBe(false);
     expect(isSafeProjectRelativePath('media/../../secret')).toBe(false);
     expect(isSafeProjectRelativePath('')).toBe(false);
+  });
+});
+describe('migrateTimelineView（时间轨修复 §6.2：一次性窗口迁移）', () => {
+  const LONG = 14 * 60 * 1000 + 32_000; // 14:32
+
+  function viewOf(durationMs: number, over: Partial<ProjectView> = {}): ProjectView {
+    const snapshot = createInitialSnapshot({
+      projectId: 'p-migrate',
+      name: '迁移',
+      media: makeMedia({ durationMs }),
+    });
+    return { ...snapshot.view, timelineViewVersion: undefined, ...over };
+  }
+
+  it('旧项目"接近全片"视图迁到以播放头为中心的 120 秒窗口并写入版本', () => {
+    const view = viewOf(LONG, { viewStartMs: 0, viewEndMs: LONG, playheadMs: 8 * 60 * 1000 });
+    expect(needsTimelineViewMigration(view, LONG)).toBe(true);
+    const migrated = migrateTimelineView(view, LONG);
+    expect(migrated.viewEndMs - migrated.viewStartMs).toBe(DEFAULT_VIEW_WINDOW_MS);
+    expect(migrated.viewStartMs).toBeLessThanOrEqual(8 * 60 * 1000);
+    expect(migrated.viewEndMs).toBeGreaterThanOrEqual(8 * 60 * 1000);
+    expect(migrated.timelineViewVersion).toBe(TIMELINE_VIEW_VERSION);
+  });
+
+  it('已含迁移版本的项目不再迁移（保持原样）', () => {
+    const view = viewOf(LONG, { viewStartMs: 0, viewEndMs: LONG, timelineViewVersion: 1 });
+    expect(needsTimelineViewMigration(view, LONG)).toBe(false);
+    expect(migrateTimelineView(view, LONG)).toBe(view);
+  });
+
+  it('已有自定义缩放（跨度小）只补写版本，窗口范围不变', () => {
+    const view = viewOf(LONG, { viewStartMs: 120_000, viewEndMs: 300_000 });
+    const migrated = migrateTimelineView(view, LONG);
+    expect(migrated.viewStartMs).toBe(120_000);
+    expect(migrated.viewEndMs).toBe(300_000);
+    expect(migrated.timelineViewVersion).toBe(TIMELINE_VIEW_VERSION);
+  });
+
+  it('短片（短于默认窗口）不迁移', () => {
+    const view = viewOf(60_000, { viewStartMs: 0, viewEndMs: 60_000 });
+    expect(needsTimelineViewMigration(view, 60_000)).toBe(false);
+    expect(migrateTimelineView(view, 60_000).viewEndMs).toBe(60_000);
+  });
+
+  it('迁移幂等：迁移结果再次迁移保持不变', () => {
+    const view = viewOf(LONG, { viewStartMs: 0, viewEndMs: LONG, playheadMs: 0 });
+    const once = migrateTimelineView(view, LONG);
+    expect(migrateTimelineView(once, LONG)).toBe(once);
   });
 });

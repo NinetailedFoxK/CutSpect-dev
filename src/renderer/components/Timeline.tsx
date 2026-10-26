@@ -34,13 +34,27 @@ import {
   type PlotXGeometry,
   type TimeRange,
 } from '../editor/editor-geometry';
-import { buildTicks, chooseTickStepMs, sliderFromSpan, spanFromSlider } from '../editor/timeline-math';
-import { frameRequestSize, planTimelineFrames } from '../editor/filmstrip-plan';
+import { buildTicks, chooseTickStepMs, nearestZoomStepIndex, zoomStepsFor } from '../editor/timeline-math';
+import { visibleSpanOf } from '../editor/timeline-visible-range';
+import {
+  frameRequestSize,
+  nearestFilmstripFrame,
+  planTimelineFrames,
+  validTimelineSlots,
+  type FrameSlot,
+} from '../editor/filmstrip-plan';
+import { nearestThumbnail } from '../editor/filmstrip';
 import { useVisibleFilmstrip } from '../hooks/useVisibleFilmstrip';
 import type { FilmstripRequestSpec } from '../editor/filmstrip-store';
 import { usePlayheadElement } from '../hooks/usePlayheadElement';
 import { SCRUB_SEEK_THROTTLE_MS } from '../hooks/useMediaPlayer';
 import { Icon, IconDetectRange, IconFollowPlayhead, IconLock, IconTimelineFit } from './Icons';
+
+/** 可视跨度超过此值：直接铺基础缩略图，不启动精确抽帧（避免一次 ffmpeg 扫描数分钟视频）。 */
+const LARGE_SPAN_THRESHOLD_MS = 120_000;
+
+/** 画面轨固定高（像素），与 graphite.css 的 --timeline-filmstrip-h 同源；槽宽由它 × 画面比例推导。 */
+const FILMSTRIP_HEIGHT_PX = 72;
 
 export interface TimelineProps {
   durationMs: number;
@@ -119,7 +133,7 @@ export function Timeline(props: TimelineProps) {
   const sections = props.sections ?? [];
   const boundariesVisible = props.boundariesVisible ?? true;
   const thumbnails = props.thumbnails ?? [];
-  const filmstripLoading = props.filmstripLoading ?? false;
+
   const mediaReady = props.mediaReady ?? true;
   const candidateCuts = props.candidateCuts ?? [];
 
@@ -198,6 +212,7 @@ export function Timeline(props: TimelineProps) {
   // 视频画面轨：按"帧宽固定、密度随缩放"规划**等间隔**帧槽，走应用级抽帧队列
   // （全局并发 2、去重、取消即终止）。画面帧只按可视窗口统一生成，**不按镜头分别生成**；
   // 镜头边界/编号/名称只作为叠加层，不决定帧的数量与宽度。
+  const visibleSpanMs = view.viewEndMs - view.viewStartMs;
   const frameAspect =
     thumbnails[0] !== undefined && thumbnails[0].height > 0
       ? thumbnails[0].width / thumbnails[0].height
@@ -205,35 +220,73 @@ export function Timeline(props: TimelineProps) {
   const frameDpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
 
   const framePlan = useMemo(
-    () => planTimelineFrames(view.viewStartMs, view.viewEndMs, geometry.plotWidth),
-    [view.viewStartMs, view.viewEndMs, geometry.plotWidth],
+    () =>
+      planTimelineFrames(view.viewStartMs, view.viewEndMs, geometry.plotWidth, {
+        // 槽宽由"画面轨高度 × 画面比例"推导（72px × 16:9 ≈ 128px），与抽帧请求同源。
+        targetWidthPx: Math.round(FILMSTRIP_HEIGHT_PX * frameAspect),
+      }),
+    [view.viewStartMs, view.viewEndMs, geometry.plotWidth, frameAspect],
   );
   const slots = framePlan.frames;
 
-  // 请求规格：覆盖首尾槽（含两侧预加载）的整段范围 + 槽数 + 尺寸。
+  // 请求范围只取"中心时间落在视频内"的有效槽：剔除首尾预加载槽，避免请求范围被 main 侧
+  // 夹取后与渲染槽整体错位一格（视频首尾少一帧/留空）。
+  const validSlots = useMemo(() => validTimelineSlots(slots, durationMs), [slots, durationMs]);
+
+  // 请求规格：覆盖有效槽的整段范围 + 槽数 + 尺寸。大跨度（> LARGE_SPAN_THRESHOLD_MS）不启动
+  // 精确抽帧，直接用基础缩略图铺满，避免一次 ffmpeg 扫描数分钟视频。
   const requestSpec = useMemo<FilmstripRequestSpec | null>(() => {
-    if (props.projectId === undefined || props.projectId.length === 0 || slots.length === 0) {
+    if (props.projectId === undefined || props.projectId.length === 0) {
       return null;
     }
-    const first = slots[0];
-    const last = slots[slots.length - 1];
+    if (visibleSpanMs > LARGE_SPAN_THRESHOLD_MS) {
+      return null;
+    }
+    if (validSlots.length === 0) {
+      return null;
+    }
+    const first = validSlots[0];
+    const last = validSlots[validSlots.length - 1];
     if (first === undefined || last === undefined) {
       return null;
     }
     const size = frameRequestSize(first.widthPx, frameAspect, frameDpr);
     return {
       projectId: props.projectId,
-      startMs: Math.max(0, first.startTimeMs),
-      endMs: Math.min(durationMs, last.endTimeMs),
-      count: slots.length,
+      startMs: Math.max(0, Math.round(first.startTimeMs)),
+      endMs: Math.min(durationMs, Math.round(last.endTimeMs)),
+      count: validSlots.length,
       width: size.width,
       height: size.height,
     };
-  }, [props.projectId, slots, frameAspect, frameDpr, durationMs]);
+  }, [props.projectId, validSlots, frameAspect, frameDpr, durationMs, visibleSpanMs]);
 
-  const frames = useVisibleFilmstrip(requestSpec, { paused: props.framesPaused ?? false });
+  const filmstrip = useVisibleFilmstrip(requestSpec, { paused: props.framesPaused ?? false });
+  const frames = filmstrip.frames;
 
-  const frameSrcAt = (index: number): string | null => frames?.[index]?.mediaUrl ?? null;
+  // 每个槽按时间取图（不再按数组下标）：① 当前范围精确帧 → ② 最近基础缩略图 → ③ 占位。
+  const pictureAt = (slot: FrameSlot): { url: string; exact: boolean } | null => {
+    const exact = nearestFilmstripFrame(frames, slot.timeMs);
+    if (exact !== null && exact.mediaUrl.length > 0) {
+      return { url: exact.mediaUrl, exact: true };
+    }
+    const fallback = nearestThumbnail(thumbnails, slot.timeMs);
+    if (fallback !== null) {
+      return { url: fallback.mediaUrl, exact: false };
+    }
+    return null;
+  };
+
+  // 是否已有可辨认画面（精确帧或基础缩略图）：没有时才显示加载/失败提示，绝不留无说明空白。
+  const hasPicture = useMemo(
+    () =>
+      slots.some(
+        (slot) =>
+          nearestFilmstripFrame(frames, slot.timeMs) !== null ||
+          nearestThumbnail(thumbnails, slot.timeMs) !== null,
+      ),
+    [slots, frames, thumbnails],
+  );
 
   // —— 拖动 seek（规格 3.2：立即预览 + 节流提交 + 松手最终提交） ——
   const scrubbingRef = useRef<DragState | null>(null);
@@ -393,23 +446,27 @@ export function Timeline(props: TimelineProps) {
     return () => el.removeEventListener('wheel', onWheel);
   }, [geometry.plotWidth, geometry.plotLeft, durationMs]);
 
-  // —— 缩放滑杆（规格 3.3：锚点=播放头优先，否则视口中心） ——
-  const sliderValue = Math.round(sliderFromSpan(spanMs, durationMs) * 100);
+  // —— 缩放档位（§6.3：离散档位替代敏感的连续对数滑杆；锚点=播放头优先，否则视口中心） ——
+  const zoomSteps = useMemo(() => zoomStepsFor(durationMs), [durationMs]);
+  const zoomStepIndex = nearestZoomStepIndex(spanMs, durationMs);
 
-  const handleZoomChange = useCallback(
-    (rawT: number) => {
+  const handleZoomStepChange = useCallback(
+    (index: number) => {
+      const step = zoomSteps[index];
+      if (step === undefined) {
+        return;
+      }
       const current = viewRef.current;
       const currentSpan = Math.max(1, current.viewEndMs - current.viewStartMs);
-      const newSpan = spanFromSlider(rawT, durationMs);
       const playheadMs = playheadStore.get();
       const inRange = playheadMs >= current.viewStartMs && playheadMs <= current.viewEndMs;
       const anchorMs = inRange ? playheadMs : (current.viewStartMs + current.viewEndMs) / 2;
       const anchorRatio = (anchorMs - current.viewStartMs) / currentSpan;
       callbacksRef.current.onTimeRangeChange(
-        zoomAroundAnchor(anchorMs, newSpan, anchorRatio, durationMs),
+        zoomAroundAnchor(anchorMs, step.spanMs, anchorRatio, durationMs),
       );
     },
-    [durationMs, playheadStore],
+    [durationMs, playheadStore, zoomSteps],
   );
 
   const handleFitAll = useCallback(() => {
@@ -525,20 +582,20 @@ export function Timeline(props: TimelineProps) {
         {/* 视频画面轨：**始终显示**（不因存在章节/段落/镜头而隐藏）。
             帧槽按可视窗口统一生成（等宽、object-fit: cover 裁切、不拉伸）；未生成时显示深色占位块。 */}
         <div className="lp-video-track" aria-hidden="true">
-          {slots.map((slot, index) => {
+          {slots.map((slot) => {
             const left = timeToX(slot.startTimeMs, range, geometry);
             const right = timeToX(slot.endTimeMs, range, geometry);
-            const src = frameSrcAt(index);
+            const picture = pictureAt(slot);
             return (
               <div
-                key={`vs-${index}-${Math.round(slot.startTimeMs)}`}
+                key={`vs-${Math.round(slot.startTimeMs)}`}
                 className="lp-video-slot"
                 style={{ left: `${left}px`, width: `${Math.max(0, right - left)}px` }}
               >
-                {src !== null ? (
+                {picture !== null ? (
                   <img
-                    className="lp-video-img"
-                    src={src}
+                    className={`lp-video-img${picture.exact ? '' : ' is-fallback'}`}
+                    src={picture.url}
                     alt=""
                     loading="eager"
                     decoding="async"
@@ -550,12 +607,26 @@ export function Timeline(props: TimelineProps) {
               </div>
             );
           })}
-          {filmstripLoading === true && frames === null && (
-            <div className="lp-filmstrip-notice">正在生成画面帧…</div>
-          )}
         </div>
 
-        {/* 镜头叠加层：边界竖线 + 编号 + 名称（可选中/悬停/右键），不决定帧的数量与宽度。 */}
+        {/* 画面轨状态提示（位于 aria-hidden 的画面轨之外，可被读屏与探针读取）：
+            无任何可辨认画面时显示加载提示；抽帧失败显示可点击重试，绝不留下无说明空白。 */}
+        {!hasPicture && filmstrip.status !== 'error' && (
+          <div className="lp-filmstrip-notice" role="status">
+            正在加载当前范围画面…
+          </div>
+        )}
+        {filmstrip.status === 'error' && (
+          <div className="lp-filmstrip-notice is-error" role="alert">
+            画面加载失败
+            <button type="button" className="lp-filmstrip-retry" onClick={filmstrip.retry}>
+              重试
+            </button>
+          </div>
+        )}
+
+        {/* 镜头叠加层：边界竖线 + 编号 + 名称（可选中/悬停/右键），不决定帧的数量与宽度。
+            视觉区域用与视口的交集，跨视口时名称仍可见并标记延续。 */}
         {structure
           .filter((n) => n.level === 'shot')
           .map((node) => {
@@ -563,20 +634,22 @@ export function Timeline(props: TimelineProps) {
             if (nodeRange === undefined) {
               return null;
             }
-            const sx = timeToX(nodeRange.startMs, range, geometry);
-            const ex = timeToX(nodeRange.endMs, range, geometry);
-            if (ex < geometry.plotLeft - 8 || sx > geometry.plotLeft + geometry.plotWidth + 8) {
+            const span = visibleSpanOf(nodeRange, view.viewStartMs, view.viewEndMs);
+            if (span.empty) {
               return null;
             }
+            const sx = timeToX(span.startMs, range, geometry);
+            const ex = timeToX(span.endMs, range, geometry);
             const width = Math.max(1, ex - sx);
             const isSelected = node.id === selectedStructureId;
             const inChain = structureChainIds?.has(node.id) ?? false;
             const number = structureNumbering.get(node.id);
+            const nameLabel = `${span.clippedStart ? '◀ ' : ''}${node.name || '（未命名）'}${span.clippedEnd ? ' ▶' : ''}`;
             return (
               <button
                 key={`ov-${node.id}`}
                 type="button"
-                className={`lp-shot-overlay-block${isSelected ? ' is-selected' : ''}${inChain ? ' is-in-chain' : ''}${node.locked ? ' is-locked' : ''}`}
+                className={`lp-shot-overlay-block${isSelected ? ' is-selected' : ''}${inChain ? ' is-in-chain' : ''}${node.locked ? ' is-locked' : ''}${span.clippedStart ? ' is-clipped-start' : ''}${span.clippedEnd ? ' is-clipped-end' : ''}`}
                 style={{ left: `${sx}px`, width: `${width}px` }}
                 title={`镜头 · ${node.name || '（未命名）'} · ${formatTimeMs(nodeRange.startMs)} — ${formatTimeMs(nodeRange.endMs)}`}
                 onPointerDown={(e) => e.stopPropagation()}
@@ -596,13 +669,13 @@ export function Timeline(props: TimelineProps) {
                 {number !== undefined && width >= 44 && (
                   <span className="lp-shot-overlay-no">{formatNumber(number)}</span>
                 )}
-                {width >= 96 && <span className="lp-shot-overlay-name">{node.name || '（未命名）'}</span>}
+                {width >= 96 && <span className="lp-shot-overlay-name">{nameLabel}</span>}
                 {node.locked && <IconLock className="lp-shot-overlay-lock" />}
               </button>
             );
           })}
 
-        {/* 结构轨：章节 / 段落（镜头不再独占一轨，已叠加到视频画面轨）。 */}
+        {/* 结构轨：章节 / 段落（视觉区域用与视口的交集，跨视口时标题仍可见并标记延续）。 */}
         {showStructureTracks && (
           <div className="lp-structure-tracks">
             {LEVELS.filter((level) => level !== 'shot').map((level) => {
@@ -616,22 +689,29 @@ export function Timeline(props: TimelineProps) {
                     if (!nodeRange) {
                       return null;
                     }
-                    const sx = timeToX(nodeRange.startMs, range, geometry);
-                    const ex = timeToX(nodeRange.endMs, range, geometry);
-                    // 虚拟化：视口外的块不进入 DOM（数百结构仍可流畅缩放）。
-                    if (ex < -4 || sx > geometry.plotLeft + geometry.plotWidth + 4) {
+                    const span = visibleSpanOf(nodeRange, view.viewStartMs, view.viewEndMs);
+                    // 虚拟化：与视口无交集的块不进入 DOM（数百结构仍可流畅缩放）。
+                    if (span.empty) {
                       return null;
                     }
+                    const sx = timeToX(span.startMs, range, geometry);
+                    const ex = timeToX(span.endMs, range, geometry);
                     const width = Math.max(1, ex - sx);
                     const isSelected = node.id === selectedStructureId;
                     const inChain = structureChainIds?.has(node.id) ?? false;
                     const number = structureNumbering.get(node.id);
                     const durationLabel = formatTimeMs(nodeRange.endMs - nodeRange.startMs);
+                    const metaLabel = span.clippedStart
+                      ? `从 ${formatTimeMs(nodeRange.startMs)} 延续`
+                      : span.clippedEnd
+                        ? `延续至 ${formatTimeMs(nodeRange.endMs)}`
+                        : `${formatTimeMs(nodeRange.startMs)} — ${formatTimeMs(nodeRange.endMs)} · ${durationLabel}`;
+                    const nameLabel = `${span.clippedStart ? '◀ ' : ''}${node.name || '（未命名）'}${span.clippedEnd ? ' ▶' : ''}`;
                     return (
                       <button
                         key={node.id}
                         type="button"
-                        className={`lp-structure-block is-${level}${isSelected ? ' is-selected' : ''}${inChain ? ' is-in-chain' : ''}${node.locked ? ' is-locked' : ''}`}
+                        className={`lp-structure-block is-${level}${isSelected ? ' is-selected' : ''}${inChain ? ' is-in-chain' : ''}${node.locked ? ' is-locked' : ''}${span.clippedStart ? ' is-clipped-start' : ''}${span.clippedEnd ? ' is-clipped-end' : ''}`}
                         style={{ left: `${sx}px`, width: `${width}px` }}
                         title={`${levelLabel(level)} · ${node.name || '（未命名）'} · ${formatTimeMs(nodeRange.startMs)} — ${formatTimeMs(nodeRange.endMs)}`}
                         onPointerDown={(e) => e.stopPropagation()}
@@ -650,10 +730,8 @@ export function Timeline(props: TimelineProps) {
                           <span className="lp-structure-block-no">{formatNumber(number)}</span>
                         )}
                         <span className="lp-structure-block-copy">
-                          <span className="lp-structure-block-name">{node.name || '（未命名）'}</span>
-                          <span className="lp-structure-block-meta">
-                            {formatTimeMs(nodeRange.startMs)} — {formatTimeMs(nodeRange.endMs)} · {durationLabel}
-                          </span>
+                          <span className="lp-structure-block-name">{nameLabel}</span>
+                          <span className="lp-structure-block-meta">{metaLabel}</span>
                         </span>
                         {node.locked && <IconLock className="lp-structure-block-lock" />}
                       </button>
@@ -769,27 +847,36 @@ export function Timeline(props: TimelineProps) {
               type="range"
               className="lp-zoom-slider"
               min={0}
-              max={100}
+              max={Math.max(0, zoomSteps.length - 1)}
               step={1}
-              value={sliderValue}
-              onChange={(e) => handleZoomChange(Number(e.target.value) / 100)}
+              value={zoomStepIndex}
+              onChange={(e) => handleZoomStepChange(Number(e.target.value))}
               aria-label="时间缩放"
               title={`可见区间 ${formatTimeMs(view.viewStartMs, { hours: 'always' })} — ${formatTimeMs(view.viewEndMs, { hours: 'always' })}`}
             />
           </label>
+          <span className="lp-zoom-span">
+            当前范围 {formatTimeMs(spanMs, { hours: 'always' })}
+          </span>
           <button type="button" className="lp-tool-button" onClick={handleFitAll} data-tip="适应全部" aria-label="适应全部">
             <IconTimelineFit />
           </button>
           {!followPlayhead && (
-            <button
-              type="button"
-              className="lp-tool-button lp-follow-button"
-              onClick={onBackToPlayhead}
-              data-tip="回到播放头"
-              aria-label="回到播放头"
-            >
-              <IconFollowPlayhead />
-            </button>
+            <div className="lp-follow-hint" role="status">
+              <span className="lp-follow-hint-text">
+                播放头在 {formatTimeMs(view.playheadMs, { hours: 'always' })}，当前浏览{' '}
+                {formatTimeMs(view.viewStartMs, { hours: 'always' })}—{formatTimeMs(view.viewEndMs, { hours: 'always' })}
+              </span>
+              <button
+                type="button"
+                className="lp-tool-button lp-follow-button"
+                onClick={onBackToPlayhead}
+                data-tip="回到播放头"
+              >
+                <IconFollowPlayhead />
+                回到播放头
+              </button>
+            </div>
           )}
           <div className="lp-timeline-legend">
             <span className="lp-legend-item" data-tip="范围选择：Shift + 拖动刻度条">

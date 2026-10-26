@@ -54,6 +54,10 @@ export const MIN_BOUNDARY_GAP_MS = 100;
 export const ANNOTATION_TITLE_MAX = 80;
 export const ANNOTATION_BODY_MAX = 5000;
 export const PROJECT_NAME_MAX = 200;
+/** 新建项目的默认可见窗口：只看片头，避免长视频把短段落挤成几像素（“适应全片”为独立按钮）。 */
+export const DEFAULT_VIEW_WINDOW_MS = 120_000;
+/** 时间线窗口迁移版本（§6.2）：标记"已按新的分钟级默认窗口处理过"。 */
+export const TIMELINE_VIEW_VERSION = 1;
 
 const FINITE = z.number().finite();
 const SAFE_TIME_MS = z.number().int().nonnegative();
@@ -170,6 +174,8 @@ export const projectViewSchema = z.object({
   inspectorCollapsed: z.boolean().optional(),
   /* 视图模式（方案 §2）：谱面视图（视频与曲线分开）/ 叠加视图（曲线覆盖视频）。 */
   canvasLayout: z.enum(['overlay', 'sheet']).optional(),
+  /* 时间线窗口迁移版本（时间轨修复文档 §6.2）：可选以兼容旧项目。 */
+  timelineViewVersion: z.number().int().positive().optional(),
 });
 
 /* 分析监视器样式（第一阶段）。作为可选字段以兼容旧项目（缺省按默认样式解析）。 */
@@ -480,7 +486,7 @@ const DEFAULT_CURVE_COLOR = '#F04B50';
  * 构造默认快照：
  * - 曲线两个值为 50 的端点（0 / durationMs，水平线，outMode 'auto'）；
  * - 首尾固定边界 + 一个覆盖全片的默认段落；
- * - view 默认全片可见、两层 100% 显示。
+ * - view 默认显示片头窗口（DEFAULT_VIEW_WINDOW_MS）、谱面视图、两层 100% 显示。
  * 返回未设置 revision 的结构由调用方决定（新建为 1）。
  */
 export function createInitialSnapshot(input: CreateInitialSnapshotInput): ProjectSnapshot {
@@ -525,7 +531,8 @@ export function createInitialSnapshot(input: CreateInitialSnapshotInput): Projec
   const view: ProjectView = {
     playheadMs: 0,
     viewStartMs: 0,
-    viewEndMs: durationMs,
+    // 默认只显示片头一段窗口（见 DEFAULT_VIEW_WINDOW_MS），短段落不再被挤成几像素。
+    viewEndMs: Math.min(durationMs, DEFAULT_VIEW_WINDOW_MS),
     videoVisible: true,
     videoOpacity: 1,
     analysisVisible: true,
@@ -537,6 +544,10 @@ export function createInitialSnapshot(input: CreateInitialSnapshotInput): Projec
     volume: 1,
     muted: false,
     timelineHeight: 350,
+    /* 新建项目默认谱面视图（视频与曲线分开），视频保持干净。 */
+    canvasLayout: 'sheet',
+    /* 新项目窗口已按 DEFAULT_VIEW_WINDOW_MS 生成，标记为当前迁移版本（§6.2）。 */
+    timelineViewVersion: TIMELINE_VIEW_VERSION,
   };
 
   return {
@@ -610,4 +621,40 @@ export function migrateProjectSnapshot(snapshot: ProjectSnapshot): ProjectSnapsh
       sections: snapshot.sections,
     });
   return { ...snapshot, schemaVersion: SCHEMA_VERSION, structure };
+}
+/* ------------------------------------------------------------------ */
+/* 时间线视图窗口一次性迁移（时间轨修复文档 §6.2）                          */
+/* ------------------------------------------------------------------ */
+
+/**
+ * 是否需要把"接近全片"的旧视图一次性迁移到以播放头为中心的 120 秒窗口。
+ * 条件：无迁移版本 + 片长超过默认窗口 + 当前跨度接近完整时长（≥95%）。
+ */
+export function needsTimelineViewMigration(view: ProjectView, durationMs: number): boolean {
+  if (view.timelineViewVersion !== undefined) {
+    return false;
+  }
+  if (!(durationMs > DEFAULT_VIEW_WINDOW_MS)) {
+    return false;
+  }
+  return view.viewEndMs - view.viewStartMs >= durationMs * 0.95;
+}
+
+/**
+ * 迁移时间线窗口（幂等，只迁移一次）：
+ * - 满足迁移条件：改为以已保存播放头为中心的 120 秒窗口，并写入迁移版本；
+ * - 无需迁移（已有自定义缩放 / 短片）：仅补写迁移版本，窗口范围保持原样。
+ */
+export function migrateTimelineView(view: ProjectView, durationMs: number): ProjectView {
+  if (!needsTimelineViewMigration(view, durationMs)) {
+    return view.timelineViewVersion === undefined
+      ? { ...view, timelineViewVersion: TIMELINE_VIEW_VERSION }
+      : view;
+  }
+  const windowMs = DEFAULT_VIEW_WINDOW_MS;
+  const maxStart = Math.max(0, durationMs - windowMs);
+  const center = Math.min(Math.max(view.playheadMs, 0), durationMs);
+  const start = Math.min(maxStart, Math.max(0, Math.round(center - windowMs / 2)));
+  const end = Math.min(durationMs, start + windowMs);
+  return { ...view, viewStartMs: start, viewEndMs: end, timelineViewVersion: TIMELINE_VIEW_VERSION };
 }

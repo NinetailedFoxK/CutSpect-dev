@@ -103,3 +103,45 @@ export function frameRequestSize(
   const height = Math.max(90, Math.round(width / ratio));
   return { width, height };
 }
+/** 带时间点的画面帧最小契约（渲染层按时间匹配，不依赖数组下标）。 */
+export interface TimeStampedFrame {
+  timeMs: number;
+  mediaUrl: string;
+}
+
+/**
+ * 过滤掉中心时间不在 [0, durationMs] 内的预加载槽，结果用于构造抽帧请求。
+ *
+ * 视频首/尾时本模块会在可视区左右各规划 1 个预加载槽（时间可能为负 / 超出时长）。
+ * 若把这类槽直接并入请求范围，请求的 `count` 仍含它、而 main 侧会把 `startMs` 夹到 0，
+ * 于是返回帧与渲染槽**整体错位一格**、片尾少一帧时留空。此处只影响请求；
+ * 渲染仍使用全量槽（预加载槽由容器裁剪）。
+ */
+export function validTimelineSlots(slots: readonly FrameSlot[], durationMs: number): FrameSlot[] {
+  return slots.filter((slot) => slot.timeMs >= 0 && slot.timeMs <= durationMs);
+}
+
+/**
+ * 与给定时间点最近的帧（按 `timeMs` 匹配，**不再使用数组索引**）。
+ *
+ * 返回帧数量可能少于请求数量（FFmpeg 少吐帧、边界丢帧），按时间最近匹配可让每个槽
+ * 都拿到可用帧、最多降级复用相邻帧，而非整段空白。等距时取更早的帧，保证确定性。
+ */
+export function nearestFilmstripFrame<T extends TimeStampedFrame>(
+  frames: readonly T[] | null,
+  timeMs: number,
+): T | null {
+  if (frames === null || frames.length === 0) {
+    return null;
+  }
+  let best: T | undefined;
+  let bestDiff = Number.POSITIVE_INFINITY;
+  for (const frame of frames) {
+    const diff = Math.abs(frame.timeMs - timeMs);
+    if (best === undefined || diff < bestDiff || (diff === bestDiff && frame.timeMs < best.timeMs)) {
+      best = frame;
+      bestDiff = diff;
+    }
+  }
+  return best ?? null;
+}

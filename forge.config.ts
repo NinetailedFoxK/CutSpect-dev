@@ -61,7 +61,7 @@ const config: ForgeConfig = {
   makers: [
     new MakerZIP(),
     new MakerDMG({
-      name: 'CutSpect-0.10.0',
+      name: 'CutSpect-0.11.0',
       format: 'ULFO',
     }),
   ],

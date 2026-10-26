@@ -105,3 +105,55 @@ function clamp(v: number, min: number, max: number): number {
   const hi = Math.max(min, max);
   return Number.isNaN(v) ? lo : Math.min(hi, Math.max(lo, v));
 }
+/* ------------------------------------------------------------------ */
+/* 缩放档位（时间轨修复文档 §6.3）：离散档位替代敏感的连续对数滑杆。        */
+/* ------------------------------------------------------------------ */
+
+export interface ZoomStepOption {
+  /** 可见跨度（毫秒）。 */
+  spanMs: number;
+  /** 档位名称。 */
+  label: string;
+}
+
+/** 档位定义（spanMs=0 表示"适应全片"）。 */
+export const ZOOM_STEP_DEFS: readonly { spanMs: number; label: string }[] = [
+  { spanMs: 0, label: '适应全片' },
+  { spanMs: 600_000, label: '10 分钟' },
+  { spanMs: 300_000, label: '5 分钟' },
+  { spanMs: 120_000, label: '2 分钟' },
+  { spanMs: 60_000, label: '1 分钟' },
+  { spanMs: 30_000, label: '30 秒' },
+  { spanMs: 10_000, label: '10 秒' },
+  { spanMs: 5_000, label: '5 秒' },
+  { spanMs: 1_000, label: '1 秒' },
+];
+
+/** 当前片长下可用档位：跨度 ≥ 片长的档位折叠掉，只保留"适应全片"。 */
+export function zoomStepsFor(durationMs: number): ZoomStepOption[] {
+  const duration = Math.max(1, durationMs);
+  const steps: ZoomStepOption[] = [];
+  for (const def of ZOOM_STEP_DEFS) {
+    if (def.spanMs === 0) {
+      steps.push({ spanMs: duration, label: def.label });
+    } else if (def.spanMs < duration) {
+      steps.push({ spanMs: def.spanMs, label: def.label });
+    }
+  }
+  return steps;
+}
+
+/** 与当前跨度最接近的档位下标。 */
+export function nearestZoomStepIndex(spanMs: number, durationMs: number): number {
+  const steps = zoomStepsFor(durationMs);
+  let best = 0;
+  let bestDiff = Number.POSITIVE_INFINITY;
+  for (let i = 0; i < steps.length; i++) {
+    const diff = Math.abs((steps[i]?.spanMs ?? 0) - spanMs);
+    if (diff < bestDiff) {
+      bestDiff = diff;
+      best = i;
+    }
+  }
+  return best;
+}

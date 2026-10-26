@@ -487,18 +487,20 @@ button:focus-visible:not(.lp-structure-block):not(.lp-timeline-candidate) {
 }
 .lp-timeline-ruler {
   --timeline-scale-h: 28px;
-  /* 结构轨只放章节 / 段落两条，固定内容高；剩余高度全部给视频画面轨
-     （不再用 62% 吞掉空间导致下方大片黑区）。 */
+  /* 结构轨只放章节 / 段落两条，固定内容高。 */
   --timeline-structure-h: 92px;
+  /* 视频画面轨固定高：不再随时间轴拉高而变高（否则缩略图被拉成狭长竖条）。 */
+  --timeline-filmstrip-h: 72px;
   background: var(--g-workspace);
 }
-/* 独立视频画面轨：**始终显示**，占满结构轨之下的全部剩余高度（拉高随之变高）。 */
+/* 独立视频画面轨：固定 72px 高（16:9 槽宽≈128px）；不再占满剩余高度。 */
 .lp-video-track {
   position: absolute;
   left: 0;
   right: 0;
   top: var(--timeline-scale-h);
-  bottom: 0;
+  height: var(--timeline-filmstrip-h);
+  bottom: auto;
   overflow: hidden;
   background: #101319;
   border-top: 1px solid var(--g-border);
@@ -510,7 +512,8 @@ button:focus-visible:not(.lp-structure-block):not(.lp-timeline-candidate) {
 .lp-video-slot {
   position: absolute;
   top: 0;
-  bottom: 0;
+  height: 100%;
+  bottom: auto;
   overflow: hidden;
   background: #101319;
   border-right: 1px solid rgba(13, 14, 18, 0.9);
@@ -519,13 +522,23 @@ button:focus-visible:not(.lp-structure-block):not(.lp-timeline-candidate) {
   display: block;
   width: 100%;
   height: 100%;
-  /* 固定宽高比 + 裁切填充：允许边缘裁切，绝不变形拉伸。 */
-  object-fit: cover;
+  /* 完整显示 16:9 画面（contain 不裁切、不变形）；两侧留白用深色底。 */
+  object-fit: contain;
   object-position: center;
+  background: #08090c;
   filter: brightness(0.85) saturate(0.9);
 }
 .lp-video-slot:hover .lp-video-img {
   filter: brightness(1) saturate(1);
+}
+/* 基础缩略图兜底：稍暗、略透明，表明这是占位图；精确帧到达后无动画直接替换（不闪烁）。 */
+.lp-video-img.is-fallback {
+  opacity: 0.74;
+  filter: brightness(0.82) saturate(0.85);
+}
+.lp-video-slot:hover .lp-video-img.is-fallback {
+  opacity: 0.86;
+  filter: brightness(0.9) saturate(0.92);
 }
 /* 未生成时的清晰深色占位块：不放大任何邻近图片。 */
 .lp-video-placeholder {
@@ -540,17 +553,18 @@ button:focus-visible:not(.lp-structure-block):not(.lp-timeline-candidate) {
     transparent 12px
   );
 }
-/* 镜头叠加层：只画边界与文字，不决定帧的宽度（叠加在视频轨之上）。 */
+/* 镜头叠加层：与视频轨同高；默认背景透明，只在顶部 20px 给标题带一点暗底。 */
 .lp-shot-overlay-block {
   position: absolute;
   top: var(--timeline-scale-h);
-  bottom: 0;
+  height: var(--timeline-filmstrip-h);
+  bottom: auto;
   padding: 2px 6px;
   display: flex;
   align-items: flex-start;
   gap: 5px;
   overflow: hidden;
-  background: linear-gradient(180deg, rgba(0, 0, 0, 0.42), rgba(0, 0, 0, 0.04) 60%);
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.5) 0, rgba(0, 0, 0, 0.5) 20px, transparent 20px);
   border-left: 1px solid rgba(255, 255, 255, 0.24);
   border-right: 1px solid rgba(255, 255, 255, 0.12);
   color: var(--g-text-1);
@@ -561,11 +575,13 @@ button:focus-visible:not(.lp-structure-block):not(.lp-timeline-candidate) {
   top: calc(var(--timeline-scale-h) + var(--timeline-structure-h) + 6px);
 }
 .lp-shot-overlay-block:hover {
-  background: linear-gradient(180deg, rgba(0, 0, 0, 0.52), rgba(0, 0, 0, 0.08) 60%);
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.6) 0, rgba(0, 0, 0, 0.6) 20px, transparent 20px);
 }
+/* 选中：1px 蓝框 + ≤8% 蓝色蒙层（不再大面积实色覆盖缩略图）。 */
 .lp-shot-overlay-block.is-selected {
   border-color: var(--g-blue);
-  background: rgba(110, 139, 255, 0.18);
+  background: linear-gradient(180deg, rgba(110, 139, 255, 0.08), rgba(110, 139, 255, 0.08));
+  box-shadow: inset 0 0 0 1px rgba(110, 139, 255, 0.75);
 }
 .lp-shot-overlay-no {
   color: var(--g-text);
@@ -585,6 +601,37 @@ button:focus-visible:not(.lp-structure-block):not(.lp-timeline-candidate) {
 }
 .lp-filmstrip-notice {
   color: var(--g-text-3);
+}
+/* 提示定位在画面轨区域（覆盖 editor.css 的 top:2px；本文件为末端覆盖层）。 */
+.lp-timeline-ruler .lp-filmstrip-notice {
+  top: calc(var(--timeline-scale-h) + 8px);
+  bottom: auto;
+}
+.lp-timeline-ruler.has-structure-tracks .lp-filmstrip-notice {
+  top: calc(var(--timeline-scale-h) + var(--timeline-structure-h) + 8px);
+}
+.lp-filmstrip-notice.is-error {
+  display: inline-flex;
+  align-items: center;
+  color: #ff8a8c;
+  background: rgba(12, 14, 18, 0.86);
+  border: 1px solid rgba(229, 72, 77, 0.45);
+  border-radius: 4px;
+}
+.lp-filmstrip-retry {
+  margin-left: 6px;
+  padding: 0 8px;
+  border: 1px solid rgba(229, 72, 77, 0.6);
+  border-radius: 4px;
+  background: transparent;
+  color: #ffc4c5;
+  font-size: 10px;
+  line-height: 16px;
+  cursor: pointer;
+}
+.lp-filmstrip-retry:hover {
+  background: rgba(229, 72, 77, 0.18);
+  color: #ffffff;
 }
 .lp-filmstrip-empty {
   position: absolute;
@@ -659,16 +706,26 @@ button:focus-visible:not(.lp-structure-block):not(.lp-timeline-candidate) {
 
 /* 结构轨 = 章节 / 段落两条（镜头不再独占一轨，已叠加到视频画面轨）。 */
 .lp-structure-tracks {
+  /* 相对 .lp-timeline-ruler 定位：缺少 position 会让内部绝对定位的段落块
+     相对整个时间轴定位，从而被拉满全高覆盖其他轨道。 */
+  position: absolute;
+  left: 0;
+  right: 0;
   top: var(--timeline-scale-h);
   height: var(--timeline-structure-h);
+  /* 高度含内边距：否则实际渲染 92+8=100px，会与下方视频轨顶重叠 2px。 */
+  box-sizing: border-box;
   padding: 4px 0;
   display: grid;
   grid-template-rows: 1fr 1fr;
   gap: 6px;
   background: var(--g-bg);
   overflow: hidden;
+  z-index: 3;
 }
 .lp-structure-track {
+  /* 作为段落块的定位参照：不设 relative，块会相对整条时间轴定位。 */
+  position: relative;
   height: auto !important;
   min-height: 0;
   overflow: hidden;
@@ -692,6 +749,14 @@ button:focus-visible:not(.lp-structure-block):not(.lp-timeline-candidate) {
   gap: 7px;
   line-height: 1.2;
   container-type: inline-size;
+}
+/* 自视口左延续进来的块：标题贴可见块左边缘 8px，虚线左边提示"真实起点在视口外"。 */
+.lp-structure-block.is-clipped-start {
+  padding-left: 8px;
+  border-left-style: dashed;
+}
+.lp-shot-overlay-block.is-clipped-start {
+  padding-left: 8px;
 }
 .lp-structure-block.is-chapter {
   background: #293140;

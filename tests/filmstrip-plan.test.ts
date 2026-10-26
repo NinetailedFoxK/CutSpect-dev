@@ -4,7 +4,9 @@ import {
   FRAME_REQUEST_MAX_WIDTH,
   FRAME_REQUEST_MIN_WIDTH,
   frameRequestSize,
+  nearestFilmstripFrame,
   planTimelineFrames,
+  validTimelineSlots,
 } from '../src/renderer/editor/filmstrip-plan';
 import {
   FRAME_QUEUE_CONCURRENCY,
@@ -54,6 +56,14 @@ describe('planTimelineFrames（整条可视范围，等宽铺满）', () => {
     const gap = (p: ReturnType<typeof planTimelineFrames>): number =>
       Math.abs((p.frames[1]?.timeMs ?? 0) - (p.frames[0]?.timeMs ?? 0));
     expect(gap(zoomed)).toBeLessThan(gap(wide));
+  });
+
+  it('72px 高、16:9 视频的目标槽宽约为 128px（CSS 与抽帧同源）', () => {
+    const plan = planTimelineFrames(30_000, 90_000, 1_280, {
+      targetWidthPx: Math.round(72 * (16 / 9)),
+    });
+    expect(Math.round(plan.slotWidthPx)).toBeGreaterThanOrEqual(120);
+    expect(Math.round(plan.slotWidthPx)).toBeLessThanOrEqual(136);
   });
 
   it('空范围或零宽度返回空', () => {
@@ -110,5 +120,59 @@ describe('抽帧队列纯函数（批处理 / 去重 / 并发约束）', () => {
     const last = frameTimeMsAt(0, 10_000, 9, 10);
     expect(last).toBeLessThan(10_000);
     expect(last).toBeGreaterThanOrEqual(0);
+  });
+});
+describe('validTimelineSlots（剔除首尾预加载槽，修正请求错位）', () => {
+  it('视频开头：中心时间为负的预加载槽被剔除', () => {
+    const plan = planTimelineFrames(0, 10_000, 960);
+    expect(plan.frames[0]?.timeMs ?? 0).toBeLessThan(0);
+    const valid = validTimelineSlots(plan.frames, 10_000);
+    expect(valid.length).toBe(plan.frames.length - 2);
+    expect(valid.every((s) => s.timeMs >= 0 && s.timeMs <= 10_000)).toBe(true);
+  });
+
+  it('视频结尾：超出时长的预加载槽被剔除', () => {
+    const plan = planTimelineFrames(50_000, 60_000, 960);
+    const last = plan.frames[plan.frames.length - 1];
+    expect(last?.timeMs ?? 0).toBeGreaterThan(60_000);
+    const valid = validTimelineSlots(plan.frames, 60_000);
+    expect(valid[valid.length - 1]?.timeMs ?? 0).toBeLessThanOrEqual(60_000);
+  });
+});
+
+describe('nearestFilmstripFrame（按 timeMs 匹配，不依赖数组下标）', () => {
+  const frames = [
+    { timeMs: 0, mediaUrl: 'a' },
+    { timeMs: 1_000, mediaUrl: 'b' },
+    { timeMs: 2_000, mediaUrl: 'c' },
+  ];
+
+  it('负时间槽取 0ms 帧（不再错配到下一帧）', () => {
+    expect(nearestFilmstripFrame(frames, -400)?.mediaUrl).toBe('a');
+  });
+
+  it('超出时长的槽取末尾帧（片尾不留空）', () => {
+    expect(nearestFilmstripFrame(frames, 9_999)?.mediaUrl).toBe('c');
+  });
+
+  it('返回帧少于槽数时最近帧降级复用，全部可见槽仍有图', () => {
+    const few = [
+      { timeMs: 100, mediaUrl: 'x' },
+      { timeMs: 500, mediaUrl: 'y' },
+    ];
+    const picks = [0, 150, 300, 450, 1_000].map(
+      (t) => nearestFilmstripFrame(few, t)?.mediaUrl ?? null,
+    );
+    expect(picks).toEqual(['x', 'x', 'x', 'y', 'y']);
+  });
+
+  it('空数组 / null 返回 null；等距取更早帧', () => {
+    expect(nearestFilmstripFrame([], 0)).toBeNull();
+    expect(nearestFilmstripFrame(null, 0)).toBeNull();
+    const eq = [
+      { timeMs: 0, mediaUrl: 'p' },
+      { timeMs: 1_000, mediaUrl: 'q' },
+    ];
+    expect(nearestFilmstripFrame(eq, 500)?.mediaUrl).toBe('p');
   });
 });
