@@ -40,7 +40,12 @@ describe('ExportService.save（规格 13.2）', () => {
     const target = path.join(dir, 'out.md');
     const service = createExportService({ showSaveDialog: async () => target });
     const result = await service.save({ suggestedName: '笔记', type: 'markdown', payload: '# 标题' });
-    expect(result).toEqual({ ok: true, data: { savedPath: target } });
+    expect(result.ok).toBe(true);
+    if (result.ok && result.data !== null) {
+      expect(result.data.id).toMatch(/^[0-9a-f-]{36}$/i);
+      expect(JSON.stringify(result.data)).not.toContain(dir);
+      expect(service.owns(result.data.id)).toBe(true);
+    }
     expect(await readFile(target, 'utf8')).toBe('# 标题');
   });
 

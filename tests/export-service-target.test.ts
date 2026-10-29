@@ -49,18 +49,53 @@ describe('ExportService.chooseTarget', () => {
 });
 
 describe('ExportService 产物白名单', () => {
-  it('remember 后 owns 为真，未知路径为假', () => {
+  it('remember 后只对渲染层暴露 id 和文件名', () => {
     const service = createExportService({ showSaveDialog: async () => null });
-    service.remember('t1', [{ path: '/tmp/a.pdf', kind: 'pdf', sizeBytes: 10 }]);
-    expect(service.owns('/tmp/a.pdf')).toBe(true);
-    expect(service.owns('/tmp/b.pdf')).toBe(false);
-    expect(service.products('t1')).toHaveLength(1);
+    const absPath = '/tmp/laipian-secret/a.pdf';
+    service.remember('t1', [{ absPath, kind: 'pdf', sizeBytes: 10 }]);
+    const products = service.products('t1');
+    expect(products).toHaveLength(1);
+    const product = products[0];
+    expect(product).toBeDefined();
+    if (product === undefined) return;
+    expect(product.fileName).toBe('a.pdf');
+    expect(product.kind).toBe('pdf');
+    expect(service.owns(product.id)).toBe(true);
+    expect(service.owns(absPath)).toBe(false);
+    expect(JSON.stringify(products)).not.toContain('laipian-secret');
     expect(service.products('unknown')).toEqual([]);
   });
 
-  it('reveal 未登记路径返回错误', async () => {
-    const service = createExportService({ showSaveDialog: async () => null, revealInFolder: () => undefined });
-    const result = await service.reveal('/tmp/not-owned.pdf');
-    expect(result.ok).toBe(false);
+  it('ZIP 产物 kind 是 zip，且不把目录交给渲染层', () => {
+    const service = createExportService({ showSaveDialog: async () => null });
+    service.remember('t-zip', [{ absPath: '/var/folders/out/bundle.zip', kind: 'zip', sizeBytes: 40 }]);
+    const product = service.products('t-zip')[0];
+    expect(product?.kind).toBe('zip');
+    expect(product?.fileName).toBe('bundle.zip');
+    expect(JSON.stringify(service.products('t-zip'))).not.toContain('/var/folders');
+  });
+
+  it('reveal / open 只接受 id，未登记 id 返回错误', async () => {
+    const revealed: string[] = [];
+    const service = createExportService({
+      showSaveDialog: async () => null,
+      revealInFolder: (absPath) => {
+        revealed.push(absPath);
+      },
+      openWithSystem: async (absPath) => {
+        revealed.push(absPath);
+        return '';
+      },
+    });
+    const absPath = '/tmp/owned-export.pdf';
+    service.remember('t1', [{ absPath, kind: 'pdf', sizeBytes: 10 }]);
+    const id = service.products('t1')[0]?.id;
+    expect(id).toBeDefined();
+    if (id === undefined) return;
+    expect((await service.reveal(id)).ok).toBe(true);
+    expect((await service.open(id)).ok).toBe(true);
+    expect(revealed).toEqual([absPath, absPath]);
+    expect((await service.reveal('00000000-0000-4000-8000-000000000000')).ok).toBe(false);
+    expect((await service.open(absPath)).ok).toBe(false);
   });
 });

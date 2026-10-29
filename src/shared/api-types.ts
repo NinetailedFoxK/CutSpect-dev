@@ -558,8 +558,14 @@ export interface ExportSaveParams {
 /* - 所有导出在本地完成，不上传视频或画面。                                */
 /* ------------------------------------------------------------------ */
 
-/** 导出产物格式（使用常见格式，不包装新术语）。 */
+/** 用户选择的导出格式（使用常见格式，不包装新术语）。ZIP 不是可选格式。 */
 export type ExportKind = 'pdf' | 'xlsx' | 'png' | 'json' | 'markdown';
+
+/**
+ * 实际落盘产物的类型。
+ * 多个格式合并为 ZIP 时产物是 `zip`，而不是其中某一个输入格式。
+ */
+export type ExportArtifactKind = ExportKind | 'zip';
 
 /** 导出范围类型。 */
 export type ExportScopeKind = 'project' | 'chapter' | 'section' | 'shots' | 'timeRange';
@@ -663,10 +669,16 @@ export interface ExportRequest {
   suggestedName: string;
 }
 
-/** 单条导出产物。 */
+/**
+ * 单条导出产物（渲染层可见）。
+ * 不含绝对路径：reveal / open 只提交 `id`，路径留在主进程白名单。
+ */
 export interface ExportProduct {
-  path: string;
-  kind: ExportKind;
+  /** 本会话稳定 id。 */
+  id: string;
+  /** 文件名（不含目录），只用于界面展示。 */
+  fileName: string;
+  kind: ExportArtifactKind;
   sizeBytes: number;
 }
 
@@ -806,20 +818,23 @@ export interface LaipianApi {
   };
 
   exports: {
-    /** 弹出原生保存对话框并写文件；用户取消返回 data: null（规格 13）。 */
-    save(params: ExportSaveParams): Promise<Result<{ savedPath: string } | null>>;
+    /**
+     * 弹出原生保存对话框并写文件；用户取消返回 data: null（规格 13）。
+     * 成功时只返回本会话产物 id，不返回绝对路径。
+     */
+    save(params: ExportSaveParams): Promise<Result<{ id: string } | null>>;
     /**
      * 启动导出后台任务（标准导出 / 专业自定义共用）。立即返回 taskId，
      * 进度与终态经 tasks 事件推送（可取消）。完成产物用 products 查询。
      * 用户在保存对话框取消时返回 data: null（不算错误）。
      */
     start(params: ExportRequest): Promise<Result<ExportStartResult | null>>;
-    /** 查询某导出任务已完成的产物列表（未完成时返回空数组）。 */
+    /** 查询某导出任务已完成的产物列表（未完成时返回空数组；不含绝对路径）。 */
     products(params: { taskId: string }): Promise<Result<ExportProduct[]>>;
-    /** 在系统文件管理器中显示导出产物（仅限本会话已生成的产物路径）。 */
-    reveal(params: { path: string }): Promise<Result<null>>;
-    /** 用系统默认程序打开导出产物（仅限本会话已生成的产物路径）。 */
-    open(params: { path: string }): Promise<Result<null>>;
+    /** 在系统文件管理器中显示导出产物（只接受本会话产物 id）。 */
+    reveal(params: { id: string }): Promise<Result<null>>;
+    /** 用系统默认程序打开导出产物（只接受本会话产物 id）。 */
+    open(params: { id: string }): Promise<Result<null>>;
   };
 
   settings: {

@@ -1,10 +1,9 @@
-import { existsSync } from 'node:fs';
 import { readFile, readdir, mkdtemp, rm, mkdir, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it } from 'vitest';
 import { resolveFfmpegPaths } from '../src/main/services/ffmpeg';
+import { baselineVideoPath } from './baseline-media';
 import {
   MAX_THUMBS,
   THUMB_HEIGHT,
@@ -24,9 +23,8 @@ import {
  */
 
 const hasFfmpeg = resolveFfmpegPaths().ffmpeg !== null;
-const DEV_VIDEO = fileURLToPath(new URL('../dev-assets/dev-test.mp4', import.meta.url));
-/** 素材存在才可跑真实素材测试（dev-assets 被 .gitignore 排除，CI / 新机器可能没有）。 */
-const hasDevVideo = existsSync(DEV_VIDEO);
+/** dev-assets 或 lavfi 小测试片。都没有时跳过，不失败。 */
+const BASELINE_VIDEO = baselineVideoPath();
 
 const cleanups: string[] = [];
 afterEach(async () => {
@@ -66,13 +64,15 @@ describe('generateThumbnails（规格 10.3 / 10.4）', () => {
     if (!result.ok) expect(result.error.code).toBe('THUMBNAIL_FAILED');
   });
 
-  it.skipIf(!hasFfmpeg || !hasDevVideo)('真实 ffmpeg：生成缩略图与封面，二次调用命中缓存', async () => {
+  it.skipIf(!hasFfmpeg || BASELINE_VIDEO === null)('真实 ffmpeg：生成缩略图与封面，二次调用命中缓存', async () => {
     const folder = await tempDir();
     await mkdir(thumbsDir(folder), { recursive: true });
     const sha = 'b'.repeat(64);
+    const source = BASELINE_VIDEO;
+    if (source === null) return;
 
     const first = await generateThumbnails({
-      sourceAbsPath: DEV_VIDEO,
+      sourceAbsPath: source,
       projectFolder: folder,
       durationMs: 10_000,
       sha256: sha,
@@ -94,7 +94,7 @@ describe('generateThumbnails（规格 10.3 / 10.4）', () => {
 
     // 第二次：缓存命中，不重复生成。
     const second = await generateThumbnails({
-      sourceAbsPath: DEV_VIDEO,
+      sourceAbsPath: source,
       projectFolder: folder,
       durationMs: 10_000,
       sha256: sha,
@@ -103,7 +103,7 @@ describe('generateThumbnails（规格 10.3 / 10.4）', () => {
 
     // 换 SHA（素材变化）→ 重建。
     const third = await generateThumbnails({
-      sourceAbsPath: DEV_VIDEO,
+      sourceAbsPath: source,
       projectFolder: folder,
       durationMs: 10_000,
       sha256: 'c'.repeat(64),

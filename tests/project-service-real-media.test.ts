@@ -1,11 +1,10 @@
 import { createHash } from 'node:crypto';
-import { existsSync } from 'node:fs';
 import { mkdir, mkdtemp, readdir, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it } from 'vitest';
 import { resolveFfmpegPaths } from '../src/main/services/ffmpeg';
+import { baselineVideoPath } from './baseline-media';
 import { createProjectService } from '../src/main/services/project-service';
 import { createTaskManager } from '../src/main/services/tasks';
 import type { ProjectSnapshot } from '../src/shared/api-types';
@@ -14,17 +13,15 @@ import type { ProjectSnapshot } from '../src/shared/api-types';
  * 真实媒体贯通测试（规格第 18 节“用真实媒体贯通功能”）。
  *
  * 与 project-service.test.ts 不同：本用例不注入桩探测，使用真实 ffprobe +
- * 真实流式复制 + 真实快照校验，验证 dev-assets/dev-test.mp4（10s H.264/AAC
- * 基线素材）能跑通“导入 → 落盘 → 重开”。
+ * 真实流式复制 + 真实快照校验，验证 10s H.264/AAC 基线素材能跑通
+ * “导入 → 落盘 → 重开”。优先使用 dev-assets/dev-test.mp4；没有时使用
+ * global-setup 用 lavfi 生成的小测试片（不入库）。
  *
- * 若本机没有 ffprobe（精简 CI 环境），整组跳过并如实标注未验证，
- * 不以桩数据冒充真实媒体验证。
+ * 若本机没有 ffprobe，或两处素材都不存在，整组跳过，不以桩数据冒充真实媒体验证。
  */
 
 const hasFfprobe = resolveFfmpegPaths().ffprobe !== null;
-const DEV_VIDEO_PATH = fileURLToPath(new URL('../dev-assets/dev-test.mp4', import.meta.url));
-/** 素材存在才可跑真实素材测试（dev-assets 被 .gitignore 排除，CI / 新机器可能没有）。 */
-const hasDevVideo = existsSync(DEV_VIDEO_PATH);
+const BASELINE_VIDEO = baselineVideoPath();
 
 const cleanups: string[] = [];
 afterEach(async () => {
@@ -55,9 +52,12 @@ async function findFolder(destDir: string): Promise<string> {
   return path.join(destDir, folder);
 }
 
-describe.skipIf(!hasFfprobe || !hasDevVideo)('真实媒体导入闭环（真实 ffprobe，规格 10.1 / 阶段 A）', () => {
+describe.skipIf(!hasFfprobe || BASELINE_VIDEO === null)('真实媒体导入闭环（真实 ffprobe，规格 10.1 / 阶段 A）', () => {
   it('导入基线视频 → 真实探测信息 → 复制校验 → 重开可播放', async () => {
-    const sourcePath = DEV_VIDEO_PATH;
+    const sourcePath = BASELINE_VIDEO;
+    if (sourcePath === null) {
+      return;
+    }
     const root = await mkdtemp(path.join(tmpdir(), 'laipian-real-'));
     cleanups.push(root);
     const destDir = path.join(root, 'projects');

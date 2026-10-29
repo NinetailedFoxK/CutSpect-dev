@@ -10,9 +10,23 @@ import { defineConfig } from 'vite';
  * - @shared 别名与 tsconfig.web.json 的 paths 保持一致，仅供渲染层使用；
  *   主进程/preload 走 tsc 编译输出，统一使用相对路径导入 shared。
  */
-export default defineConfig({
+export default defineConfig(({ command }) => ({
   base: './',
-  plugins: [react()],
+  plugins: [
+    react(),
+    {
+      name: 'dev-csp-connect',
+      transformIndexHtml(html) {
+        if (command !== 'serve') {
+          return html;
+        }
+        return html.replace(
+          "connect-src 'self'",
+          "connect-src 'self' http://127.0.0.1:5173 ws://127.0.0.1:5173",
+        );
+      },
+    },
+  ],
   resolve: {
     alias: {
       '@shared': fileURLToPath(new URL('./src/shared', import.meta.url)),
@@ -28,4 +42,4 @@ export default defineConfig({
     port: 5173,
     strictPort: true,
   },
-});
+}));

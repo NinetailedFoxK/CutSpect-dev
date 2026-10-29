@@ -1,4 +1,4 @@
-import { BrowserWindow, dialog, ipcMain } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain } from 'electron';
 import type { IpcMainInvokeEvent, OpenDialogOptions } from 'electron';
 import { stat } from 'node:fs/promises';
 import path from 'node:path';
@@ -18,6 +18,7 @@ import type { IpcInvokeChannel } from '../shared/ipc-channels';
 import { buildMediaUrl } from '../shared/media-url';
 import { projectSnapshotSchema } from '../shared/schema';
 import { consumeSelection, registerSelection } from './file-selection';
+import { isTrustedFrameUrl } from './ipc-trust';
 import { createCompatibleCopy } from './services/compatible-copy-service';
 import { probeFile } from './services/ffmpeg';
 import { getFramePreview } from './services/frame-service';
@@ -34,12 +35,12 @@ import type { UpdateService } from './update/service';
 /**
  * IPC handler 注册（规格 12.4 / 12.5）。
  *
- * - 所有 invoke 通道用 zod 校验参数，只信任本应用渲染层来源。
+ * - 所有 invoke 通道用 zod 校验参数。
+ * - 打包态只信任 file:// 渲染层；开发态才额外信任 Vite。
  * - 文件选择入口返回一次性 opaque 令牌；业务 handler 用令牌兑换真实路径
  *   （renderer 永远拿不到绝对路径）。
+ * - 导出的 reveal / open 只接受本会话产物 id，绝对路径留在主进程白名单。
  * - handler 一律返回 Result<T>，异常兜底为 INTERNAL，不让渲染层收到裸 reject。
- * - 阶段 D 的 media.createCompatibleCopy / rebuildThumbnails / exports 仍为
- *   占位（NO 假按钮：渲染层对应入口在阶段 D 接线前不启用）。
  */
 
 export interface IpcDeps {
@@ -55,19 +56,19 @@ export interface IpcDeps {
 /* 注册框架                                                              */
 /* ------------------------------------------------------------------ */
 
-const DEV_SERVER_URL = process.env.LAIPIAN_DEV_SERVER_URL ?? 'http://127.0.0.1:5173';
-
 /** 视频选择器允许的扩展名（规格 10.1：扩展名仅用于筛选，实际由 ffprobe 检查）。 */
 const VIDEO_EXTENSIONS = ['mp4', 'mov', 'm4v', 'webm', 'mkv'] as const;
 
-/** 只信任本应用渲染层（file:// 生产或 127.0.0.1:5173 dev）发起的调用。 */
+/** 只信任本应用渲染层。打包态不信任 Vite 默认地址。 */
 function isTrustedSender(event: IpcMainInvokeEvent): boolean {
   const frame = event.senderFrame;
   if (!frame) {
     return false;
   }
-  const url = frame.url ?? '';
-  return url.startsWith('file://') || url === DEV_SERVER_URL || url.startsWith(`${DEV_SERVER_URL}/`);
+  return isTrustedFrameUrl(frame.url ?? '', {
+    isPackaged: app.isPackaged,
+    devServerUrl: process.env.LAIPIAN_DEV_SERVER_URL,
+  });
 }
 
 /**
@@ -326,7 +327,7 @@ const exportRequestSchema = z.object({
 });
 
 const exportProductsSchema = z.object({ taskId: z.string().min(1) });
-const exportPathSchema = z.object({ path: z.string().min(1) });
+const exportIdSchema = z.object({ id: z.string().uuid() });
 
 const settingsSetSchema = z.object({
   settings: z.object({
@@ -754,12 +755,12 @@ export function registerIpcHandlers(deps: IpcDeps): void {
     ok(exports.products(params.taskId)),
   );
 
-  registerHandler(IPC_CHANNELS.exportsReveal, exportPathSchema, async (params) =>
-    exports.reveal(params.path),
+  registerHandler(IPC_CHANNELS.exportsReveal, exportIdSchema, async (params) =>
+    exports.reveal(params.id),
   );
 
-  registerHandler(IPC_CHANNELS.exportsOpen, exportPathSchema, async (params) =>
-    exports.open(params.path),
+  registerHandler(IPC_CHANNELS.exportsOpen, exportIdSchema, async (params) =>
+    exports.open(params.id),
   );
 
   /* 应用设置（v1.1 快捷键自定义，全局） */

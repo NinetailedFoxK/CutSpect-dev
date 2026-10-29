@@ -11,7 +11,8 @@ describe('平台适配层 currentAdapter', () => {
     expect(['macos', 'windows', 'linux']).toContain(id);
 
     const adapter = currentAdapter();
-    expect(adapter.id).toBe(id);
+    // Linux 目前复用 Windows 适配（adapter.id 为 windows），不是独立实现。
+    expect(adapter.id).toBe(id === 'linux' ? 'windows' : id);
     expect(typeof adapter.isMac).toBe('boolean');
     expect(typeof adapter.formatBinding).toBe('function');
     expect(typeof adapter.executableNames).toBe('function');

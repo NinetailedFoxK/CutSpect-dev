@@ -8,14 +8,14 @@
       - default-src 'self'：默认只允许同源资源。
       - media-src 显式放行 laipian-media: 自定义协议（规格 12.5 受控媒体读取）与 blob:。
       - img-src 放行 data:/blob:（缩略图占位）与 laipian-media:。
-      - connect-src 放行 vite dev server 的 http/ws（仅开发期 HMR；本地应用无外网出口）。
+      - connect-src 生产环境只有 'self'。Vite 的 5173 仅在 `vite serve` 时注入，不进入安装包。
       - script-src 仅 'self'：生产 file:// 与开发 dev server 同源均被覆盖，
         contextIsolation + sandbox 下渲染层无 Node 能力，禁止任意远程脚本。
       - style-src 'unsafe-inline'：React 内联样式与 vite 开发期注入样式所需。
     -->
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: laipian-media:; media-src 'self' blob: laipian-media:; font-src 'self' data:; connect-src 'self' http://127.0.0.1:5173 ws://127.0.0.1:5173; object-src 'none'; base-uri 'none'; form-action 'none'"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: laipian-media:; media-src 'self' blob: laipian-media:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'"
     />
     <title>CutSpect</title>
   </head>

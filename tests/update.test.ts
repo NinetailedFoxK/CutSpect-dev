@@ -65,6 +65,7 @@ function makeConfig(
     platform,
     arch: 'x64',
     currentVersion: '0.10.0',
+    signedForAutoUpdate: true,
     env,
   });
 }
@@ -119,6 +120,7 @@ describe('更新地址配置（集中构造）', () => {
       platform: 'win32',
       arch: 'x64',
       currentVersion: '0.10.0',
+      signedForAutoUpdate: true,
       env: {},
     });
     expect(config.enabled).toBe(false);
@@ -131,10 +133,25 @@ describe('更新地址配置（集中构造）', () => {
       platform: 'win32',
       arch: 'x64',
       currentVersion: '0.10.0',
+      signedForAutoUpdate: true,
       env: { [UPDATE_ENV_KEYS.repo]: 'a/b', [UPDATE_ENV_KEYS.disable]: '1' },
     });
     expect(config.enabled).toBe(false);
     expect(config.reason).toBe('disabled-by-env');
+  });
+
+  it('未签名 / ad-hoc 构建即使配置了仓库也不静默更新', () => {
+    const config = resolveUpdateConfig({
+      isPackaged: true,
+      platform: 'darwin',
+      arch: 'arm64',
+      currentVersion: '0.11.0',
+      signedForAutoUpdate: false,
+      env: { [UPDATE_ENV_KEYS.repo]: 'a/b' },
+    });
+    expect(config.enabled).toBe(false);
+    expect(config.reason).toBe('unsigned');
+    expect(config.feedUrl).toBeNull();
   });
 });
 
@@ -145,6 +162,7 @@ describe('开发环境不检查更新', () => {
       platform: 'darwin',
       arch: 'arm64',
       currentVersion: '0.10.0',
+      signedForAutoUpdate: true,
       env: { [UPDATE_ENV_KEYS.repo]: 'a/b' },
     });
     expect(config.enabled).toBe(false);
@@ -157,6 +175,7 @@ describe('开发环境不检查更新', () => {
       platform: 'win32',
       arch: 'x64',
       currentVersion: '0.10.0',
+      signedForAutoUpdate: true,
       env: { [UPDATE_ENV_KEYS.repo]: 'a/b' },
     });
     const harness = createHarness(config);

@@ -1,11 +1,12 @@
 import { createHash } from 'node:crypto';
 import { spawn } from 'node:child_process';
-import { existsSync } from 'node:fs';
-import { mkdir, mkdtemp, readFile, readdir, rm, writeFile, access } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, readdir, realpath, rm, symlink, writeFile, access } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { createProjectService, sanitizeFolderName } from '../src/main/services/project-service';
+import { createProjectService, resolveInsideProject, sanitizeFolderName } from '../src/main/services/project-service';
+import { resolveRegisteredPath } from '../src/main/protocol';
+import { baselineVideoPath } from './baseline-media';
 import type { ProjectService } from '../src/main/services/project-service';
 import { createTaskManager } from '../src/main/services/tasks';
 import { createInitialSnapshot } from '../src/shared/schema';
@@ -30,6 +31,10 @@ afterEach(async () => {
 });
 
 const SIXTY_SECONDS = 60_000;
+
+function harnessFree(name: string): string {
+  return path.join(tmpdir(), 'laipian-unit', name);
+}
 
 function stubProbe(): (absPath: string) => Promise<Result<ProbeResult>> {
   const value: ProbeResult = {
@@ -230,6 +235,112 @@ describe('openProjectFolder / 校验（规格 9.3 / F04）', () => {
     // 原文件未被覆盖。
     const raw = await readFile(path.join(folder, 'project.json'), 'utf8');
     expect(JSON.parse(raw)).toEqual(snapshot);
+  });
+
+  it('playbackPath 词法越界不会被当成项目内路径', () => {
+    const folder = path.resolve(harnessFree('playback-root'));
+    expect(resolveInsideProject(folder, 'media/playback.webm')).toBe(path.resolve(folder, 'media/playback.webm'));
+    expect(resolveInsideProject(folder, '../outside.webm')).toBeNull();
+    expect(resolveInsideProject(folder, 'media/../../outside.webm')).toBeNull();
+    expect(resolveInsideProject(folder, '/etc/passwd')).toBeNull();
+  });
+
+  it('项目内 playback 文件会在夹紧后登记', async () => {
+    const harness = await setup();
+    const folder = path.join(harness.destDir, 'play-ok');
+    await mkdir(path.join(folder, 'media'), { recursive: true });
+    await writeFile(path.join(folder, 'media', 'source.mp4'), Buffer.from('source'));
+    await writeFile(path.join(folder, 'media', 'playback.webm'), Buffer.from('play'));
+    const snapshot = createInitialSnapshot({
+      projectId: 'play-1',
+      name: '正常副本',
+      media: {
+        id: 'm',
+        originalName: 'x.mp4',
+        sourcePath: 'media/source.mp4',
+        playbackPath: 'media/playback.webm',
+        sha256: 'b'.repeat(64),
+        sizeBytes: 10,
+        durationMs: SIXTY_SECONDS,
+        width: 1920,
+        height: 1080,
+        videoCodec: 'h264',
+        audioCodec: null,
+        avgFrameRate: { num: 30, den: 1 },
+        isVfr: false,
+        isHdr: false,
+      },
+    });
+    await writeFile(path.join(folder, 'project.json'), JSON.stringify(snapshot));
+    const opened = await harness.services.openProjectFolder(folder);
+    expect(opened.ok).toBe(true);
+    if (!opened.ok) return;
+    expect(opened.data.mediaUrl).toContain('/playback');
+    const registered = resolveRegisteredPath({
+      projectId: 'play-1',
+      mediaId: 'm',
+      resourceKind: 'playback',
+      name: null,
+    });
+    expect(registered).toBe(await realpath(path.join(folder, 'media', 'playback.webm')));
+    await harness.services.closeProject('play-1');
+  });
+
+  it('playback 符号链接指向项目外时不登记播放资源', async (ctx) => {
+    const harness = await setup();
+    const folder = path.join(harness.destDir, 'link-play');
+    const outside = path.join(harness.destDir, 'outside.webm');
+    await mkdir(path.join(folder, 'media'), { recursive: true });
+    await writeFile(path.join(folder, 'media', 'source.mp4'), Buffer.from('source'));
+    await writeFile(outside, Buffer.from('secret'));
+    try {
+      await symlink(outside, path.join(folder, 'media', 'playback.webm'));
+    } catch {
+      ctx.skip();
+      return;
+    }
+    const snapshot = createInitialSnapshot({
+      projectId: 'link-1',
+      name: '链接副本',
+      media: {
+        id: 'm',
+        originalName: 'x.mp4',
+        sourcePath: 'media/source.mp4',
+        playbackPath: 'media/playback.webm',
+        sha256: 'a'.repeat(64),
+        sizeBytes: 10,
+        durationMs: SIXTY_SECONDS,
+        width: 1920,
+        height: 1080,
+        videoCodec: 'h264',
+        audioCodec: null,
+        avgFrameRate: { num: 30, den: 1 },
+        isVfr: false,
+        isHdr: false,
+      },
+    });
+    await writeFile(path.join(folder, 'project.json'), JSON.stringify(snapshot));
+    const opened = await harness.services.openProjectFolder(folder);
+    expect(opened.ok).toBe(true);
+    if (!opened.ok) return;
+    expect(opened.data.mediaUrl).toContain('/source');
+    expect(opened.data.mediaUrl).not.toContain('/playback');
+    expect(
+      resolveRegisteredPath({
+        projectId: 'link-1',
+        mediaId: 'm',
+        resourceKind: 'playback',
+        name: null,
+      }),
+    ).toBeUndefined();
+    const source = resolveRegisteredPath({
+      projectId: 'link-1',
+      mediaId: 'm',
+      resourceKind: 'source',
+      name: null,
+    });
+    expect(source).toBe(path.resolve(folder, 'media', 'source.mp4'));
+    await harness.services.closeProject('link-1');
   });
 
   it('存活的跨进程锁 → PROJECT_LOCKED（规格 8.5）', async () => {
@@ -446,9 +557,10 @@ describe('removeRecent / 重命名 / 关闭（规格 2.2 / 8.4 / 8.5）', () => 
 });
 
 describe('封面后台补建（规格 2.2 卡片封面占位）', () => {
-  const devVideo = path.resolve('dev-assets', 'dev-test.mp4');
+  const devVideo = baselineVideoPath();
 
-  it.skipIf(!existsSync(devVideo))('缺少封面的旧项目在列表读取时自动补建封面', async () => {
+  it.skipIf(devVideo === null)('缺少封面的旧项目在列表读取时自动补建封面', async () => {
+    if (devVideo === null) return;
     const harness = await setup(devVideo);
     const projectId = await createAndReady(harness, '缺封面项目');
     const folder = await findProjectFolder(harness.destDir);

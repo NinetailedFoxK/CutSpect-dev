@@ -53,6 +53,8 @@ const hasUpdateConfig = existsSync(updateConfigPath);
 
 const config: ForgeConfig = {
   packagerConfig: {
+    // macOS CFBundleIdentifier。不要改成 Windows 的 AppUserModelId：
+    // Squirrel 要求 com.squirrel.laipian-tai.laipian-tai，两边不是同一个标识。
     appBundleId: 'com.cutspec.desktop',
     appCategoryType: 'public.app-category.video',
     appCopyright: 'Copyright © 2026 CutSpect',
@@ -125,7 +127,7 @@ const config: ForgeConfig = {
             setupExe: `LaipianTai-${VERSION}-Setup.exe`,
             setupIcon: 'assets/icon.ico',
             authors: 'CutSpect 开发组',
-            description: '离线桌面拉片与视频节奏分析工具',
+            description: '桌面拉片与视频节奏分析工具（素材不上传）',
             noMsi: true,
           }),
         ]
