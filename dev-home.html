@@ -6,6 +6,7 @@
     <!--
       【仅开发预览】项目库 UI 开发脚手架页（A-T5）。
       - 仅由 vite dev server 直接访问（http://127.0.0.1:5173/dev-home.html）；
+      - 这里的 CSP 含 5173 只为开发预览。安装包使用 index.html，生产 CSP 不含 5173。
         vite build 的正式入口是 index.html，本文件不进入打包产物。
       - 挂载 src/renderer/dev/demo-home.tsx（固定假数据 + mock window.laipian）。
       - 集成阶段完成后删除本文件与 src/renderer/dev/ 目录。

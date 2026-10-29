@@ -21,16 +21,19 @@ export interface SetupAutoUpdateDeps {
 
 /**
  * 读取更新配置来源。
- * 优先级：运行时环境变量（本地调试/测试）> 打包注入文件（resources/update-config.json）> 无。
- * 未配置任何公开仓库时禁用更新（安全默认），应用照常运行。
+ * 仓库名 / feed：运行时环境变量覆盖打包注入文件。
+ * 正式签名标记只认打包文件里的 `signed: true`。运行时环境变量不能把它打开，
+ * 避免未签名包被临时变量重新启用静默更新。
  */
-function readRuntimeUpdateEnv(): Record<string, string> {
+function readRuntimeUpdateSource(): { env: Record<string, string>; signedForAutoUpdate: boolean } {
   const fromFile: Record<string, string> = {};
+  let signedForAutoUpdate = false;
   try {
     const configPath = path.join(process.resourcesPath, 'update-config.json');
     const parsed = JSON.parse(readFileSync(configPath, 'utf8')) as {
       repo?: unknown;
       feed?: unknown;
+      signed?: unknown;
     };
     if (typeof parsed.repo === 'string' && parsed.repo.trim().length > 0) {
       fromFile[UPDATE_ENV_KEYS.repo] = parsed.repo.trim();
@@ -38,8 +41,9 @@ function readRuntimeUpdateEnv(): Record<string, string> {
     if (typeof parsed.feed === 'string' && parsed.feed.trim().length > 0) {
       fromFile[UPDATE_ENV_KEYS.feed] = parsed.feed.trim();
     }
+    signedForAutoUpdate = parsed.signed === true;
   } catch {
-    // 文件缺失/损坏：忽略（开发构建或未注入配置）。
+    // 文件缺失/损坏：忽略（开发构建或未注入配置）。未签名，更新保持关闭。
   }
 
   const fromEnv: Record<string, string> = {};
@@ -50,18 +54,20 @@ function readRuntimeUpdateEnv(): Record<string, string> {
     }
   }
 
-  return { ...fromFile, ...fromEnv };
+  return { env: { ...fromFile, ...fromEnv }, signedForAutoUpdate };
 }
 
 /** 创建并启动更新服务（bootstrap 内调用一次）。 */
 export function setupAutoUpdate(deps: SetupAutoUpdateDeps): UpdateService {
   const currentVersion = app.getVersion();
+  const source = readRuntimeUpdateSource();
   const config = resolveUpdateConfig({
     isPackaged: app.isPackaged,
     platform: process.platform,
     arch: process.arch,
     currentVersion,
-    env: readRuntimeUpdateEnv(),
+    signedForAutoUpdate: source.signedForAutoUpdate,
+    env: source.env,
   });
   deps.log(
     `[update] enabled=${config.enabled} support=${config.support} reason=${config.reason ?? '-'} feed=${config.feedUrl ?? '-'}`,

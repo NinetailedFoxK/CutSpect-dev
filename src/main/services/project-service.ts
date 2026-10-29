@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { access, mkdir, readFile, readdir, rename, rm, stat } from 'node:fs/promises';
+import { access, mkdir, readFile, readdir, realpath, rename, rm, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { err, ok } from '../../shared/api-types';
 import type {
@@ -24,6 +24,7 @@ import {
 } from '../../shared/schema';
 import { registerMediaResource, unregisterProject } from '../protocol';
 import { writeFileAtomic } from './atomic-write';
+import { acquireProjectLock, releaseProjectLock } from './project-lock';
 import { checkMediaPolicy, copyWithHash, estimateSpaceFor } from './media-service';
 import { generateCover } from './thumbnail-service';
 import { probeFile } from './ffmpeg';
@@ -156,17 +157,50 @@ async function pathExists(target: string): Promise<boolean> {
   }
 }
 
-/** 判断进程是否存活（跨进程锁的失效判定，规格 8.5）。 */
-function isProcessAlive(pid: number): boolean {
-  if (!Number.isInteger(pid) || pid <= 0) {
+/** 解析后的路径是否严格位于 root 之内（不是 root 本身，也不是 `..` 逃逸）。 */
+function isResolvedInside(root: string, candidate: string): boolean {
+  const rel = path.relative(root, candidate);
+  if (rel.length === 0 || path.isAbsolute(rel)) {
     return false;
   }
+  return rel !== '..' && !rel.startsWith(`..${path.sep}`);
+}
+
+/**
+ * 把项目内相对路径解析成绝对路径，并确认它仍在项目根目录内。
+ * 与打开项目时对 sourcePath 的夹紧同一标准：拒绝绝对路径、`..` 和解析后越界。
+ */
+export function resolveInsideProject(folder: string, relativePath: string): string | null {
+  if (!isSafeProjectRelativePath(relativePath)) {
+    return null;
+  }
+  const root = path.resolve(folder);
+  const abs = path.resolve(root, relativePath);
+  if (!isResolvedInside(root, abs)) {
+    return null;
+  }
+  return abs;
+}
+
+/**
+ * 播放副本在 registerMedia 之前的路径夹紧。
+ * 词法路径必须留在项目内；文件若已存在，再按 realpath 确认符号链接没有指向项目外。
+ * 越界时返回 null，调用方不得登记该路径。
+ */
+async function resolvePlaybackForRegister(folder: string, relativePath: string): Promise<string | null> {
+  const lexical = resolveInsideProject(folder, relativePath);
+  if (lexical === null) {
+    return null;
+  }
   try {
-    process.kill(pid, 0);
-    return true;
-  } catch (error) {
-    // EPERM：进程存在但无权限（视为存活）；ESRCH：不存在。
-    return (error as NodeJS.ErrnoException | null)?.code === 'EPERM';
+    const real = await realpath(lexical);
+    const realRoot = await realpath(path.resolve(folder));
+    if (!isResolvedInside(realRoot, real)) {
+      return null;
+    }
+    return real;
+  } catch {
+    return lexical;
   }
 }
 
@@ -270,31 +304,11 @@ export function createProjectService(options: ProjectServiceOptions): ProjectSer
   }
 
   async function acquireLock(folder: string): Promise<Result<string>> {
-    const lockPath = path.join(folder, '.lock');
-    try {
-      const raw = await readFile(lockPath, 'utf8');
-      const parsed = JSON.parse(raw) as { pid?: number };
-      if (typeof parsed.pid === 'number' && parsed.pid !== process.pid && isProcessAlive(parsed.pid)) {
-        return err(
-          'PROJECT_LOCKED',
-          `项目正被另一个程序（进程 ${parsed.pid}）占用，请关闭后重试。`,
-          true,
-        );
-      }
-      // 陈旧锁（进程已退出）：接管。
-    } catch {
-      // 无锁文件或内容损坏：正常获取。
-    }
-    try {
-      await writeFileAtomic(lockPath, JSON.stringify({ pid: process.pid, at: iso() }));
-    } catch (error) {
-      return err('IO', `无法写入项目锁：${(error as Error).message}`, true);
-    }
-    return ok(lockPath);
+    return acquireProjectLock(path.join(folder, '.lock'), iso());
   }
 
   async function releaseLock(lockPath: string): Promise<void> {
-    await rm(lockPath, { force: true }).catch(() => undefined);
+    await releaseProjectLock(lockPath);
   }
 
   /** 记录运行时（保存分析所需；素材缺失时也要保留，规格 9.3）。 */
@@ -412,15 +426,15 @@ export function createProjectService(options: ProjectServiceOptions): ProjectSer
     if (!lock.ok) {
       return lock;
     }
-    const sourceAbsPath = path.resolve(folder, snapshot.media.sourcePath);
+    const sourceAbsPath = resolveInsideProject(folder, snapshot.media.sourcePath);
     // 防穿越：解析后必须仍在项目文件夹内（规格 9.2）。
-    if (!sourceAbsPath.startsWith(path.resolve(folder) + path.sep)) {
+    if (sourceAbsPath === null) {
       await releaseLock(lock.data);
       return err('SCHEMA_INVALID', '项目内素材路径越出项目文件夹，已拒绝打开。');
     }
     const playbackAbsPath =
       snapshot.media.playbackPath !== null
-        ? path.resolve(folder, snapshot.media.playbackPath)
+        ? await resolvePlaybackForRegister(folder, snapshot.media.playbackPath)
         : null;
 
     const sourceExists = await pathExists(sourceAbsPath);
@@ -1045,8 +1059,8 @@ export function createProjectService(options: ProjectServiceOptions): ProjectSer
       ) {
         return err('INVALID_PARAMS', '兼容副本路径必须位于项目 media/ 目录内。');
       }
-      const resolved = path.resolve(runtime.folder, params.relativePath);
-      if (!resolved.startsWith(path.resolve(runtime.folder) + path.sep)) {
+      const resolved = await resolvePlaybackForRegister(runtime.folder, params.relativePath);
+      if (resolved === null) {
         return err('INVALID_PARAMS', '兼容副本路径越出项目文件夹。');
       }
       if (!(await pathExists(resolved))) {

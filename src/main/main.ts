@@ -82,10 +82,14 @@ if (IS_SMOKE) {
 }
 
 function isAllowedNavigation(targetUrl: string): boolean {
-  if (DEV_SERVER_URL && (targetUrl === DEV_SERVER_URL || targetUrl.startsWith(`${DEV_SERVER_URL}/`))) {
+  // 打包态只允许 file://。开发态才放行 Vite（且必须显式配置 LAIPIAN_DEV_SERVER_URL）。
+  if (
+    !app.isPackaged &&
+    DEV_SERVER_URL &&
+    (targetUrl === DEV_SERVER_URL || targetUrl.startsWith(`${DEV_SERVER_URL}/`))
+  ) {
     return true;
   }
-  // 生产环境：仅允许本地打包文件；laipian-media: 仅用于子资源，不导航。
   return targetUrl.startsWith('file://');
 }
 
@@ -147,7 +151,7 @@ function createWindow(): BrowserWindow {
     win.show();
   });
 
-  if (DEV_SERVER_URL) {
+  if (!app.isPackaged && DEV_SERVER_URL) {
     void win.loadURL(DEV_SERVER_URL);
     if (!IS_SMOKE) {
       win.webContents.openDevTools({ mode: 'detach' });
@@ -877,7 +881,10 @@ const squirrelHandled =
     logger: (message) => process.stderr.write(`${message}\n`),
   });
 
-// 与 Squirrel 生成的 AppUserModelId 保持一致（任务栏归组 / 通知 / 更新识别）。
+// Windows AppUserModelId 必须与 Squirrel 生成的一致：
+// com.squirrel.<MakerSquirrel name>.<executableName> = com.squirrel.laipian-tai.laipian-tai。
+// 这与 macOS 的 bundle id（com.cutspec.desktop）不是同一个标识，不能改成同一个值，
+// 否则任务栏归组、快捷方式和 Squirrel 更新会对不上。
 if (process.platform === 'win32') {
   app.setAppUserModelId('com.squirrel.laipian-tai.laipian-tai');
 }

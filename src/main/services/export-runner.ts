@@ -3,7 +3,8 @@ import { writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { err, ok } from '../../shared/api-types';
-import type { ExportKind, ExportProduct, ExportRequest, TaskProgress, Result } from '../../shared/api-types';
+import type { ExportKind, ExportRequest, TaskProgress, Result } from '../../shared/api-types';
+import { outputArtifactKind } from '../../shared/export-artifact';
 import type { MediaContext } from './project-service';
 import { buildExportDocument } from '../../shared/export-document';
 import type { ExportDocument } from '../../shared/export-document';
@@ -14,7 +15,7 @@ import { extractFrames, type ExportFrameRequest } from './export-frames';
 import { buildExcelExport } from './export-excel';
 import { renderHtmlToPdf, renderHtmlToPng } from './export-render';
 import { zipFiles } from './export-archive';
-import type { ExportTarget } from './export-service';
+import type { ExportTarget, ExportWrittenFile } from './export-service';
 
 /**
  * 导出编排（批次 A-4 / B / C）：把一次导出请求完整执行到磁盘产物。
@@ -24,7 +25,8 @@ import type { ExportTarget } from './export-service';
  *   2. 抽取代表画面（高清、避让硬切、单帧失败降级）；
  *   3. 按输出格式生成：PDF / XLSX / PNG / JSON / Markdown；
  *   4. 多产物且选择 ZIP 时打包为压缩文件；
- *   5. 返回产物列表（路径 + 类型 + 大小）。
+ *   5. 返回主进程内部产物（绝对路径 + 类型 + 大小）。
+ *      渲染层只通过 export-service 拿到 id，不直接看到这些路径。
  *
  * 本模块依赖 electron 渲染（PDF/PNG），需真实运行环境；纯内容由 shared 覆盖单测。
  */
@@ -112,7 +114,7 @@ async function toDataUrl(absPath: string): Promise<string> {
   return `data:image/jpeg;base64,${bytes.toString('base64')}`;
 }
 
-export async function runExport(params: RunExportParams): Promise<Result<ExportProduct[]>> {
+export async function runExport(params: RunExportParams): Promise<Result<ExportWrittenFile[]>> {
   const { request, target, media, ctx } = params;
   const generatedAt = params.generatedAt ?? new Date().toISOString();
   const cancelled = (): Result<never> => err('CANCELLED', '导出已取消。');
@@ -165,7 +167,7 @@ export async function runExport(params: RunExportParams): Promise<Result<ExportP
   const files = planFiles(target, request, base);
   const useZip = request.zip && request.kinds.length > 1;
 
-  const products: ExportProduct[] = [];
+  const products: ExportWrittenFile[] = [];
   let tempDir: string | null = null;
 
   try {
@@ -198,12 +200,20 @@ export async function runExport(params: RunExportParams): Promise<Result<ExportP
         .filter((f) => f.zipName !== undefined)
         .map((f) => ({ path: path.join(tempDir as string, f.zipName as string), name: f.zipName as string }));
       const size = await zipFiles(target.path, entries);
-      products.push({ path: target.path, kind: 'json', sizeBytes: size });
+      products.push({
+        absPath: target.path,
+        kind: outputArtifactKind(true, 'json'),
+        sizeBytes: size,
+      });
       return ok(products);
     }
 
     for (const file of files) {
-      products.push({ path: file.path, kind: file.kind, sizeBytes: await fileSize(file.path) });
+      products.push({
+        absPath: file.path,
+        kind: outputArtifactKind(false, file.kind),
+        sizeBytes: await fileSize(file.path),
+      });
     }
     return ok(products);
   } finally {

@@ -42,6 +42,10 @@ export const INITIAL_UPDATE_STATE: UpdateState = {
  * - LAIPIAN_RELEASE_REPO：公开发布仓库 owner/repo。
  * - LAIPIAN_UPDATE_FEED：自定义 feed 基础地址（覆盖官方托管；用于自建更新服务）。
  * - LAIPIAN_UPDATE_DISABLE：设为 1/true/yes/on 时彻底关闭更新。
+ * - LAIPIAN_UPDATE_SIGNED：仅构建机使用。设为 1/true/yes/on 时，把
+ *   `signed: true` 写入 update-config.json。只有 Developer ID / Authenticode
+ *   正式签名包才应设置。ad-hoc（`codesign -`）和未签名包不要设置。
+ *   运行时环境变量不能把未签名包重新打开自动更新。
  */
 export const UPDATE_ENV_KEYS = {
   repo: 'LAIPIAN_RELEASE_REPO',
@@ -169,7 +173,8 @@ export type UpdateDisabledReason =
   | 'dev'
   | 'not-configured'
   | 'disabled-by-env'
-  | 'unsupported-platform';
+  | 'unsupported-platform'
+  | 'unsigned';
 
 export interface UpdateRuntimeInput {
   /** app.isPackaged：未打包（开发环境）不检查更新。 */
@@ -180,6 +185,11 @@ export interface UpdateRuntimeInput {
   arch: string;
   /** app.getVersion()。 */
   currentVersion: string;
+  /**
+   * 构建注入的正式签名标记。缺省视为未签名。
+   * 未签名 / ad-hoc 构建必须为 false，从而禁用静默自动更新。
+   */
+  signedForAutoUpdate: boolean;
   /** process.env（只读取白名单键）。 */
   env: Readonly<Record<string, string | undefined>>;
 }
@@ -207,7 +217,8 @@ function parseSwitch(value: string | undefined): boolean {
 
 /**
  * 解析更新配置（唯一入口）：
- * 优先级：显式关闭 → 开发环境 → 不支持的平台 → 未配置仓库 → 启用。
+ * 优先级：显式关闭 → 开发环境 → 不支持的平台 → 未签名/ad-hoc → 未配置仓库 → 启用。
+ * 未签名包需要用户手动下载安装包覆盖安装，不在应用内静默下载替换。
  */
 export function resolveUpdateConfig(input: UpdateRuntimeInput): ResolvedUpdateConfig {
   const support: UpdateSupport =
@@ -234,6 +245,9 @@ export function resolveUpdateConfig(input: UpdateRuntimeInput): ResolvedUpdateCo
   }
   if (support === 'unsupported') {
     return { ...base, enabled: false, reason: 'unsupported-platform', repo: null, feedUrl: null };
+  }
+  if (input.signedForAutoUpdate !== true) {
+    return { ...base, enabled: false, reason: 'unsigned', repo: null, feedUrl: null };
   }
 
   const repo = (input.env[UPDATE_ENV_KEYS.repo] ?? '').trim();

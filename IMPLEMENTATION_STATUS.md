@@ -7,7 +7,11 @@
 > - **未验证**：代码可能存在但当前机器无法验证（缺平台 / 缺证书 / 缺素材）。
 > - **阻塞项**：缺少外部条件（证书、目标系统、FFmpeg 二进制）才能继续。
 >
-> 最后更新：2026-10-24。更新者：实施记录（阶段 A/B/C + 阶段 D：导出 / 恢复快照 / 素材重定位 / 缩略图 / 兼容副本）。
+> 当前源码版本：**0.11.0**（`package.json`）。
+> 本文件在开发副本 `NinetailedFoxK/CutSpect-dev` 维护，上游是 `ZevinZhao/CutSpect-dev`。
+> 面向用户的安装包在公开发布仓，不在这两个开发仓的源码页下载。
+>
+> 最后更新：2026-10-29。v0.11.0 对齐安全模型与文档；恢复快照以代码和 `tests/recovery-relocate.test.ts` 为准。
 
 ## 0. 验证环境与证据
 
@@ -18,7 +22,7 @@
 | Electron | 44.9.3 |
 | FFmpeg / ffprobe | 随包分发：FFmpeg 6.0 / ffprobe 4.4.1（macOS arm64） |
 | 类型检查 | `npm run typecheck` 通过（node / web / test / config 四套 tsconfig） |
-| 单元/集成测试 | `npm test` → **259 passed / 23 files** |
+| 单元/集成测试 | `npm test` → **581 passed / 59 files**（2026-10-29，Linux 上跑通；缺 dev-assets 时用 lavfi 小测试片）。第 9–14 节里的「259 / 286 / 306 / 324 / 329」是当时阶段的快照，不是当前总数。 |
 | 端到端冒烟 | `npm run smoke` → `SMOKE_OK`（真实 Electron 窗口 + IPC 往返 + 真实媒体协议加载与 seek） |
 | 打包 | `.app`、ZIP、DMG 已成功生成；应用完整性签名校验通过；打包后应用冒烟 `SMOKE_OK`；已安装至 `/Applications/拉片台.app` |
 
@@ -102,7 +106,7 @@
 | 项目库搜索 / 重命名 / 从最近移除 + 撤销提示 | 已实现 | `pages/Home.tsx` | 纯函数 `filterProjects` 未单测 |
 | 自动保存（内容+视图防抖 1s）、保存状态顶栏 | 已实现 | `App.EditorHost` | 规格 8.2 |
 | 撤销/重做覆盖标注与分段 | 已实现（快照式历史天然覆盖） | `shared/history.ts` + `App.EditorHost` | 未做标注/分段专用历史用例 |
-| 恢复快照（异常退出，F02）、素材缺失重新定位（G01） | **未实现** | — | 见第 8 节 |
+| 恢复快照（异常退出，F02）、素材缺失重新定位（G01） | 已实现/已实测 | `project-service.ts`（pending 检测、恢复、丢弃、`relocateSource`），`pages/Editor.tsx`、`pages/Home.tsx` | `tests/recovery-relocate.test.ts`。第 5 节是同一能力的阶段 D 记录，不以本节旧的「未实现」为准。 |
 
 ## 5. 阶段 D 明细（输出已交付部分）
 
@@ -200,7 +204,7 @@
 ```bash
 npm install                 # 依赖已精确锁定
 npm run typecheck           # 四套 tsconfig 均需通过
-npm test                    # 286 passed；含真实 ffprobe/ffmpeg、保存并发、曲线/标注/分段、导出、恢复与重定位、帧带与精确帧
+npm test                    # 以命令输出为准；缺 dev-assets 时用 lavfi 小测试片，没有 ffmpeg 则 skip
 npm run smoke               # 需 GUI 会话；输出 SMOKE_OK + 媒体协议 + 帧带/精确帧探针
 npm run build               # 含 electron-forge package（darwin arm64）
 ```

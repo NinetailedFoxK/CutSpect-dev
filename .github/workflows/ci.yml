@@ -25,9 +25,9 @@ jobs:
         with:
           node-version: '22'
 
-      # 使用 npm install 而非 npm ci：新增 Windows 打包器后需刷新 package-lock.json。
+      # package-lock.json 可被 npm ci 原样复现。
       - name: 安装依赖
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
 
       - name: 类型检查
         run: npm run typecheck

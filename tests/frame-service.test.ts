@@ -1,9 +1,8 @@
-import { existsSync } from 'node:fs';
 import { mkdir, mkdtemp, readFile, readdir, rm, utimes, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it } from 'vitest';
+import { baselineVideoPath } from './baseline-media';
 import { err, ok } from '../src/shared/api-types';
 import type { ProjectMedia, Result } from '../src/shared/api-types';
 import { resolveFfmpegPaths } from '../src/main/services/ffmpeg';
@@ -204,18 +203,19 @@ describe('pruneFrames（LRU 上限）', () => {
   });
 });
 const hasFfmpeg = resolveFfmpegPaths().ffmpeg !== null;
-const DEV_VIDEO = fileURLToPath(new URL('../dev-assets/dev-test.mp4', import.meta.url));
-/** 素材存在才可跑真实素材测试（dev-assets 被 .gitignore 排除，CI / 新机器可能没有）。 */
-const hasDevVideo = existsSync(DEV_VIDEO);
+/** dev-assets 或 lavfi 小测试片。都没有时跳过，不失败。 */
+const BASELINE_VIDEO = baselineVideoPath();
 
 describe('getFramePreview（真实 ffmpeg）', () => {
-  it.skipIf(!hasFfmpeg || !hasDevVideo)('抽取真实 JPEG，二次请求命中缓存', async () => {
+  it.skipIf(!hasFfmpeg || BASELINE_VIDEO === null)('抽取真实 JPEG，二次请求命中缓存', async () => {
+    const source = BASELINE_VIDEO;
+    if (source === null) return;
     const folder = await tempDir();
     const media = makeMedia({ durationMs: 10_000, sha256: 'e'.repeat(64) });
     const options = {
       projectId: 'proj-real',
       projectFolder: folder,
-      sourceAbsPath: DEV_VIDEO,
+      sourceAbsPath: source,
       media,
       timeMs: 2000,
       width: 176,

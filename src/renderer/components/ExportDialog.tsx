@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type {
+  ExportArtifactKind,
   ExportEstimate,
   ExportFieldId,
   ExportFrameSettings,
@@ -33,6 +34,27 @@ import { Icon } from './Icons';
 import { currentAdapter } from '../../platform/common';
 
 const PLATFORM = currentAdapter();
+
+function productIconName(kind: ExportArtifactKind): string {
+  switch (kind) {
+    case 'pdf':
+      return 'file-pdf';
+    case 'xlsx':
+      return 'file-xlsx';
+    case 'png':
+      return 'file-png';
+    case 'json':
+      return 'file-json';
+    case 'markdown':
+      return 'file-markdown';
+    case 'zip':
+      return 'export';
+  }
+}
+
+function productKindLabel(kind: ExportArtifactKind): string {
+  return kind === 'zip' ? 'ZIP' : EXPORT_KIND_LABEL[kind];
+}
 
 /**
  * 导出中心对话框（规格 13 重设计）。
@@ -302,11 +324,11 @@ export function ExportDialog(props: ExportDialogProps): React.ReactElement | nul
   }, [taskId]);
 
   const openProduct = useCallback((product: ExportProduct) => {
-    void window.laipian?.exports.open({ path: product.path });
+    void window.laipian?.exports.open({ id: product.id });
   }, []);
 
   const revealProduct = useCallback((product: ExportProduct) => {
-    void window.laipian?.exports.reveal({ path: product.path });
+    void window.laipian?.exports.reveal({ id: product.id });
   }, []);
 
   const saveTemplate = useCallback(async () => {
@@ -431,11 +453,11 @@ export function ExportDialog(props: ExportDialogProps): React.ReactElement | nul
           ) : (
             <ul className="lp-export-products">
               {products.map((product) => (
-                <li key={product.path} className="lp-export-product">
-                  <Icon name={product.kind === 'pdf' ? 'file-pdf' : product.kind === 'xlsx' ? 'file-xlsx' : product.kind === 'png' ? 'file-png' : product.kind === 'json' ? 'file-json' : 'file-markdown'} size={16} />
+                <li key={product.id} className="lp-export-product">
+                  <Icon name={productIconName(product.kind)} size={16} />
                   <div className="lp-export-product-info">
-                    <span className="lp-export-product-name">{product.path.split(/[\\/]/).pop() ?? product.path}</span>
-                    <span className="lp-export-product-meta">{EXPORT_KIND_LABEL[product.kind]} · {formatBytes(product.sizeBytes)}</span>
+                    <span className="lp-export-product-name">{product.fileName}</span>
+                    <span className="lp-export-product-meta">{productKindLabel(product.kind)} · {formatBytes(product.sizeBytes)}</span>
                   </div>
                   <button type="button" className="lp-export-product-action" onClick={() => openProduct(product)}>打开文件</button>
                   <button type="button" className="lp-export-product-action" onClick={() => revealProduct(product)}>{PLATFORM.revealLabel}</button>

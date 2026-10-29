@@ -1,10 +1,12 @@
 # 拉片台（laipian-tai / CutSpect）
 
-> **CutSpect / 拉片台 · v0.10.0**
-> 开源仓库：[github.com/ZevinZhao/CutSpect](https://github.com/ZevinZhao/CutSpect)
+> **CutSpect / 拉片台 · v0.11.0**（版本号以 `package.json` 为准）
+> 本开发副本：[github.com/NinetailedFoxK/CutSpect-dev](https://github.com/NinetailedFoxK/CutSpect-dev)
+> 上游开发仓：[github.com/ZevinZhao/CutSpect-dev](https://github.com/ZevinZhao/CutSpect-dev)
 > 许可证：[MIT](LICENSE)
 
-离线桌面拉片（视频分析）应用：一个项目 = 一条视频 + 一条红色分析曲线 + 分段 + 标注。
+桌面拉片（视频分析）应用：一个项目 = 一条视频 + 一条红色分析曲线 + 分段 + 标注。
+素材留在本机，不上传。可选的更新检查会联网。
 
 桌面版基于 Electron + React + TypeScript + Electron Forge，采用
 **一套共享源码 ＋ 少量平台适配 ＋ macOS 与 Windows 各自构建产物**，
@@ -12,9 +14,19 @@
 
 ---
 
+## 仓库分别是什么
+
+| 仓库 | 角色 |
+| --- | --- |
+| `NinetailedFoxK/CutSpect-dev` | 本 fork。在这里改代码、开 PR、跑 CI。 |
+| `ZevinZhao/CutSpect-dev` | 上游开发仓。本仓库从它 fork 而来。 |
+| 公开发布仓 | 只放安装包、更新说明和更新元数据，不含源码。具体 `owner/repo` 由发布流程的 `RELEASE_REPO` 决定（示例：`ZevinZhao/CutSpect-downloads`）。普通用户从那里的 Releases 下载。 |
+
+本 fork 的 `main` 不是用户下载入口。没有正式发布标签时，不要把这里的源码当成新安装包。
+
 ## 一、普通用户：下载与安装
 
-前往仓库的 [Releases](https://github.com/ZevinZhao/CutSpect/releases) 页面，按系统选择：
+到**公开发布仓**的 Releases 页面，按系统选择：
 
 | 系统 | 文件 | 说明 |
 | --- | --- | --- |
@@ -28,7 +40,7 @@
 >   Windows 正式公开发行需要代码签名，否则可能出现 SmartScreen 警告。
 > - 本应用**不会**要求你关闭系统安全功能。若被拦截，请以正规渠道获取签名版本，
 >   不要降低系统安全设置。
-> - 应用完全离线运行，不联网、不上传你的视频。
+> - 视频和项目数据留在本机，不会上传。可选的「检查更新」会联网访问更新服务器。
 
 FFmpeg 与 ffprobe 随安装包分发，用户**无需另行安装**。
 
@@ -38,9 +50,9 @@ FFmpeg 与 ffprobe 随安装包分发，用户**无需另行安装**。
 
 ### 环境要求
 
-- Node.js ≥ 22.12（本仓库在 Node 25.5.0 / npm 11.8.0 上验证）
+- Node.js ≥ 22.12
 - macOS 14+ 或 Windows 11 x64
-- 所有依赖版本精确锁定，构建可重复（新增 Windows 打包器后需刷新 `package-lock.json`）
+- 依赖以 `package-lock.json` 为准，`npm ci` 可以原样复现安装
 
 ### 安装依赖
 
@@ -50,7 +62,7 @@ Electron 二进制体积较大，国内网络建议走镜像：
 ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/ npm install
 ```
 
-镜像失败时回退官方源：`npm install`。
+镜像失败时回退官方源：`npm install`。锁定安装、以及 CI，使用 `npm ci`（当前 lock 可以原样复现）。
 
 ### 常用命令
 
@@ -101,8 +113,13 @@ src/
 | 主修饰键 | `⌘`（Command） | `Ctrl` |
 | 系统术语 | 「在访达中显示」 | 「在文件资源管理器中显示」 |
 | 内部程序名 / 可执行文件 | CutSpect.app | `laipian-tai`（`laipian-tai.exe`） |
+| 应用标识 | bundle id `com.cutspec.desktop` | AppUserModelId `com.squirrel.laipian-tai.laipian-tai` |
 | 界面显示名 | 「拉片台」（一致） | 「拉片台」（一致） |
 | 安装包 | DMG + ZIP（仅 darwin 产出） | Squirrel Setup.exe + ZIP（仅 win32 产出） |
+
+macOS 的 bundle id 和 Windows 的 AppUserModelId **保持各自的值**。Squirrel.Windows 按
+`com.squirrel.<安装包名>.<可执行名>` 生成 AppUserModelId（这里两边都是 `laipian-tai`）。
+把它改成 `com.cutspec.desktop` 会让任务栏归组、快捷方式和更新安装对不上。
 
 快捷键在两端的绑定完全共用（`mod` 在 macOS 映射 Command、Windows 映射 Ctrl）；
 `Control + 滚轮` 缩放时间线、`Shift + 滚轮` 横向移动，`Space`/`J K L`/方向键/`Q W E`/
@@ -155,24 +172,32 @@ renderer 只通过 `window.laipian`（preload 注入）访问主进程能力，
 ## 八、持续集成与发布
 
 - **ci.yml**：`push` 与 `Pull Request` 时，在 macOS 与 Windows **两个环境**
-  从**同一 commit**分别执行依赖安装、类型检查、测试与构建；任一端失败即视为未完成。
+  从**同一 commit**分别执行 `npm ci`、类型检查、测试与构建；任一端失败即视为未完成。
+  当前 `package-lock.json` 可以被 `npm ci` 原样安装。
 - **release.yml**：推送 `v*` 标签触发；macOS 产出 DMG + ZIP，Windows 产出
   Setup.exe + ZIP + `RELEASES` + `.nupkg`（自动更新必需），全部上传到
   **公开发布仓库**的同一个 Release。
-- 版本号唯一来源是 `package.json`；一个版本只用一个标签（如 `v0.10.0`），
+- 版本号唯一来源是 `package.json`（当前 **0.11.0**）；一个版本只用一个标签（如 `v0.11.0`），
   发布前校验「标签版本 = package.json 版本」。
 
 ## 九、自动更新
 
 - 机制：Electron 内置 `autoUpdater`（Windows = Squirrel，macOS = Squirrel.Mac）；
   不引入第三方更新方案，**应用内不含任何 GitHub Token**。
-- 流程：启动 → 延迟后台检查 → 无更新不打扰 / 有更新静默下载 →
+- 正式签名包的流程：启动 → 延迟后台检查 → 无更新不打扰 / 有更新静默下载 →
   就绪后提示「稍后 / 立即重启并安装」；安装前先保存当前项目。
 - 更新地址集中配置（唯一入口 `src/shared/update.ts` 的 `resolveUpdateConfig`）：
   构建时由 `scripts/write-update-config.cjs` 把公开仓库名注入
-  `resources/update-config.json`；开发环境或未配置时自动禁用更新。
+  `resources/update-config.json`；开发环境、未配置或未签名时自动禁用更新。
+- **未签名和 ad-hoc 构建禁用静默更新。** 当前 macOS 打包钩子是 `codesign --sign -`
+  （本机临时签名），Windows 打包也不做 Authenticode。这类安装包不会在后台下载并替换自己。
+  升级时请到公开发布仓下载新安装包，手动覆盖安装。不要为了安装去关闭系统安全功能。
+- 只有使用 Developer ID（macOS）或 Authenticode（Windows）正式签名的发布构建，
+  才应在构建时设置 `LAIPIAN_UPDATE_SIGNED=1`。该标记写进 `update-config.json`。
+  运行时环境变量**不能**把未签名包重新打开自动更新。
 - 可用环境变量：`LAIPIAN_RELEASE_REPO`（公开仓库 owner/repo）、
-  `LAIPIAN_UPDATE_FEED`（自建 feed，可选）、`LAIPIAN_UPDATE_DISABLE`（彻底关闭）。
+  `LAIPIAN_UPDATE_FEED`（自建 feed，可选）、`LAIPIAN_UPDATE_DISABLE`（彻底关闭）、
+  `LAIPIAN_UPDATE_SIGNED`（仅正式签名的构建机）。
 
 ## 十、浏览器预览模式
 
@@ -183,9 +208,9 @@ renderer 只通过 `window.laipian`（preload 注入）访问主进程能力，
 ## 十一、已知边界
 
 - **签名**：macOS 正式公开发行需 Developer ID 签名与公证；Windows 正式发行需
-  代码签名——本轮均为**未签名测试包**。
-- **macOS 自动更新限制**：未签名 / 未公证的 macOS 构建**不保证自动更新**，
-  升级可能需要手动覆盖安装；Windows 未签名时可能出现 SmartScreen 警告。
+  代码签名。当前打包结果是未签名或 ad-hoc 测试包，静默自动更新已关闭。
+- **手动升级**：未签名 / ad-hoc 包请下载新安装包覆盖安装。Windows 未签名时可能出现
+  SmartScreen 警告。本应用不会要求关闭系统安全功能。
 - `src/platform/linux.ts` 不存在：Linux 目前仅复用 Windows 适配（未验证回退）。
 - 部分真实设备项（Apple Silicon 之外架构、125%/150% 缩放观感、真实指针手势、
   PNG Canvas 光栅化）仍建议在真机做专项验收。

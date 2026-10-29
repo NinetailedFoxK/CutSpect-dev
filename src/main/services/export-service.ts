@@ -1,6 +1,8 @@
+import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { err, ok } from '../../shared/api-types';
 import type {
+  ExportArtifactKind,
   ExportKind,
   ExportProduct,
   ExportSaveParams,
@@ -17,7 +19,8 @@ import { writeFileAtomic } from './atomic-write';
  * - save：旧的 PNG / Markdown 直接保存（保留兼容）；
  * - chooseTarget：按产物数量弹出合适的系统对话框（单文件 / 多文件目录 / ZIP）；
  * - reveal / open：完成后"在文件夹中显示"与"打开文件"；
- * - 只允许操作本会话生成的产物路径（owns 白名单），杜绝任意路径打开。
+ * - 渲染层只拿到稳定 id 与文件名。绝对路径留在主进程 owns 白名单，
+ *   reveal / open 只接受 id，杜绝任意路径打开。
  *
  * 本模块不 import electron（对话框与 shell 由 main 注入），可在 vitest 下测试。
  */
@@ -51,20 +54,35 @@ export interface ChooseTargetInput {
   zip: boolean;
 }
 
+/** 主进程内部的落盘结果。绝对路径不得进入渲染层。 */
+export interface ExportWrittenFile {
+  absPath: string;
+  kind: ExportArtifactKind;
+  sizeBytes: number;
+}
+
+interface OwnedExport {
+  id: string;
+  absPath: string;
+  fileName: string;
+  kind: ExportArtifactKind;
+  sizeBytes: number;
+}
+
 export interface ExportService {
-  save(params: ExportSaveParams): Promise<Result<{ savedPath: string } | null>>;
+  save(params: ExportSaveParams): Promise<Result<{ id: string } | null>>;
   /** 依据产物数量与是否 ZIP 弹出合适的系统对话框；用户取消返回 data: null。 */
   chooseTarget(input: ChooseTargetInput): Promise<Result<ExportTarget | null>>;
-  /** 在系统文件管理器中显示（仅限本会话产物）。 */
-  reveal(path: string): Promise<Result<null>>;
-  /** 用系统默认程序打开（仅限本会话产物）。 */
-  open(path: string): Promise<Result<null>>;
-  /** 登记某任务产物，建立 reveal/open 白名单。 */
-  remember(taskId: string, products: ExportProduct[]): void;
-  /** 查询某任务产物（未完成返回空数组）。 */
+  /** 在系统文件管理器中显示（仅限本会话产物 id）。 */
+  reveal(id: string): Promise<Result<null>>;
+  /** 用系统默认程序打开（仅限本会话产物 id）。 */
+  open(id: string): Promise<Result<null>>;
+  /** 登记某任务产物，建立 reveal/open 白名单，并分配渲染层可见的 id。 */
+  remember(taskId: string, files: readonly ExportWrittenFile[]): void;
+  /** 查询某任务产物（未完成返回空数组；不含绝对路径）。 */
   products(taskId: string): ExportProduct[];
-  /** 该路径是否为本会话产物。 */
-  owns(path: string): boolean;
+  /** 该 id 是否为本会话产物。 */
+  owns(id: string): boolean;
 }
 
 /** 过滤路径分隔符与非法字符，仅保留建议文件名（不带目录）。 */
@@ -104,9 +122,35 @@ function filterForKind(kind: ExportKind): { name: string; extensions: string[] }
   return { name: KIND_FILTER_NAME[kind], extensions: [def?.extension ?? 'dat'] };
 }
 
+function fileNameOf(absPath: string): string {
+  const base = path.basename(absPath).trim();
+  return base.length > 0 ? base : 'CutSpect导出';
+}
+
+function toPublic(record: OwnedExport): ExportProduct {
+  return {
+    id: record.id,
+    fileName: record.fileName,
+    kind: record.kind,
+    sizeBytes: record.sizeBytes,
+  };
+}
+
 export function createExportService(options: ExportServiceOptions): ExportService {
-  const owned = new Set<string>();
+  const byId = new Map<string, OwnedExport>();
   const byTask = new Map<string, ExportProduct[]>();
+
+  function register(absPath: string, kind: ExportArtifactKind, sizeBytes: number): OwnedExport {
+    const record: OwnedExport = {
+      id: randomUUID(),
+      absPath,
+      fileName: fileNameOf(absPath),
+      kind,
+      sizeBytes,
+    };
+    byId.set(record.id, record);
+    return record;
+  }
 
   return {
     async save(params) {
@@ -142,8 +186,8 @@ export function createExportService(options: ExportServiceOptions): ExportServic
       } catch (error) {
         return err('IO', `写入失败，原有文件未被替换：${(error as Error).message}`, true);
       }
-      owned.add(targetPath);
-      return ok({ savedPath: targetPath });
+      const record = register(targetPath, params.type === 'png' ? 'png' : 'markdown', 0);
+      return ok({ id: record.id });
     },
 
     async chooseTarget(input) {
@@ -184,35 +228,35 @@ export function createExportService(options: ExportServiceOptions): ExportServic
       }
     },
 
-    async reveal(targetPath) {
-      if (!owned.has(targetPath)) {
+    async reveal(id) {
+      const record = byId.get(id);
+      if (record === undefined) {
         return err('INVALID_PARAMS', '只能显示本次导出的文件。');
       }
       if (options.revealInFolder === undefined) {
         return err('INTERNAL', '当前环境不支持在文件夹中显示。');
       }
-      options.revealInFolder(targetPath);
+      options.revealInFolder(record.absPath);
       return ok(null);
     },
 
-    async open(targetPath) {
-      if (!owned.has(targetPath)) {
+    async open(id) {
+      const record = byId.get(id);
+      if (record === undefined) {
         return err('INVALID_PARAMS', '只能打开本次导出的文件。');
       }
       if (options.openWithSystem === undefined) {
         return err('INTERNAL', '当前环境不支持打开文件。');
       }
-      const message = await options.openWithSystem(targetPath);
+      const message = await options.openWithSystem(record.absPath);
       if (message.length > 0) {
         return err('IO', `打开文件失败：${message}`, true);
       }
       return ok(null);
     },
 
-    remember(taskId, products) {
-      for (const product of products) {
-        owned.add(product.path);
-      }
+    remember(taskId, files) {
+      const products = files.map((file) => toPublic(register(file.absPath, file.kind, file.sizeBytes)));
       byTask.set(taskId, products);
     },
 
@@ -220,8 +264,8 @@ export function createExportService(options: ExportServiceOptions): ExportServic
       return byTask.get(taskId) ?? [];
     },
 
-    owns(targetPath) {
-      return owned.has(targetPath);
+    owns(id) {
+      return byId.has(id);
     },
   };
 }

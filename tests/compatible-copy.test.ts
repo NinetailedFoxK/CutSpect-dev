@@ -1,10 +1,9 @@
-import { existsSync } from 'node:fs';
 import { mkdtemp, readFile, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it } from 'vitest';
 import { probeFile, resolveFfmpegPaths } from '../src/main/services/ffmpeg';
+import { baselineVideoPath } from './baseline-media';
 import {
   COMPAT_DURATION_TOLERANCE_MS,
   COMPAT_FPS,
@@ -20,13 +19,12 @@ import { ok } from '../src/shared/api-types';
  * 兼容副本测试（规格 10.2）。
  * - 参数组装（固定 WebM/VP8/Opus、缩放、CFR、无音频 -an）为纯函数断言；
  * - 注入运行器：失败/时长不符 → 明确错误，且 .partial 被清理；
- * - 真实 ffmpeg：dev-test.mp4 → playback.webm，探测为 vp8/opus 且时长≈10s。
+ * - 真实 ffmpeg：10s H.264/AAC（dev-assets 或 lavfi 小测试片）→ playback.webm，探测为 vp8/opus。
  */
 
 const hasFfmpeg = resolveFfmpegPaths().ffmpeg !== null && resolveFfmpegPaths().ffprobe !== null;
-const DEV_VIDEO = fileURLToPath(new URL('../dev-assets/dev-test.mp4', import.meta.url));
-/** 素材存在才可跑真实素材测试（dev-assets 被 .gitignore 排除，CI / 新机器可能没有）。 */
-const hasDevVideo = existsSync(DEV_VIDEO);
+/** dev-assets 或 lavfi 小测试片。都没有时跳过，不失败。 */
+const BASELINE_VIDEO = baselineVideoPath();
 
 const cleanups: string[] = [];
 afterEach(async () => {
@@ -123,11 +121,13 @@ describe('createCompatibleCopy（规格 10.2 失败与清理）', () => {
     await expect(stat(`${target}.partial`)).rejects.toThrow();
   });
 
-  it.skipIf(!hasFfmpeg || !hasDevVideo)('真实 ffmpeg：生成可播 WebM（VP8/Opus，时长≈10s）', async () => {
+  it.skipIf(!hasFfmpeg || BASELINE_VIDEO === null)('真实 ffmpeg：生成可播 WebM（VP8/Opus，时长≈10s）', async () => {
+    const source = BASELINE_VIDEO;
+    if (source === null) return;
     const dir = await tempDir();
     const target = path.join(dir, 'playback.webm');
     const result = await createCompatibleCopy({
-      sourceAbsPath: DEV_VIDEO,
+      sourceAbsPath: source,
       targetPath: target,
       media: media(),
     });
