@@ -25,6 +25,10 @@ export interface HandleSquirrelStartupDeps {
   /** 处理完成后退出（main 传 app.exit）。 */
   quit: (code: number) => void;
   logger?: (message: string) => void;
+  /** 安装/更新时登记「打开方式」。失败不得阻断快捷方式。 */
+  onInstall?: () => void;
+  /** 卸载时移除「打开方式」。失败不得阻断快捷方式移除。 */
+  onUninstall?: () => void;
 }
 
 /**
@@ -54,6 +58,21 @@ export function handleSquirrelStartup(deps: HandleSquirrelStartupDeps): boolean 
   const updateExe = resolveUpdateExePath(deps.execPath);
   const target = resolveShortcutTargetName(deps.execPath);
 
+  const runHook = (hook: (() => void) | undefined, label: string): void => {
+    if (hook === undefined) {
+      return;
+    }
+    try {
+      hook();
+    } catch (error) {
+      logger(
+        `[squirrel] ${label}失败（已忽略）：${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
+  };
+
   const runThenQuit = (args: readonly string[], code: number): void => {
     // Update.exe 为分离进程：按官方 electron-squirrel-startup 做法**立即**退出，
     // 不等待其完成（否则会闪出空窗口、或卡住安装/卸载流程）。
@@ -72,9 +91,11 @@ export function handleSquirrelStartup(deps: HandleSquirrelStartupDeps): boolean 
   switch (startup.kind) {
     case 'install':
     case 'updated':
+      runHook(deps.onInstall, '登记打开方式');
       runThenQuit(['--createShortcut', target], 0);
       return true;
     case 'uninstall':
+      runHook(deps.onUninstall, '移除打开方式');
       runThenQuit(['--removeShortcut', target], 0);
       return true;
     case 'obsolete':

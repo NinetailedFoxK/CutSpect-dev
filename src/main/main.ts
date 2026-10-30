@@ -5,8 +5,12 @@ import { app, BrowserWindow, dialog, protocol, screen, shell } from 'electron';
 import { execFile, spawn } from 'node:child_process';
 import os from 'node:os';
 import { promisify } from 'node:util';
+import { createExternalVideoOpenCoordinator } from './external-open';
+import type { ExternalVideoOpenCoordinator } from './external-open';
 import { registerIpcHandlers } from './ipc';
 import { handleSquirrelStartup } from './update/squirrel';
+import { describeVideoSelection } from './video-pick';
+import { applyWindowsFileAssociationsSync } from './windows-file-assoc';
 import { setupAutoUpdate } from './update';
 import { createExportService } from './services/export-service';
 import { runExport } from './services/export-runner';
@@ -22,6 +26,7 @@ import { createTaskManager } from './services/tasks';
 import { generateThumbnails, listThumbnailEntries } from './services/thumbnail-service';
 import { buildMediaUrl } from '../shared/media-url';
 import { IPC_CHANNELS } from '../shared/ipc-channels';
+import type { ExternalVideoOpen } from '../shared/api-types';
 import { createInitialSnapshot } from '../shared/schema';
 import { createStructureNode } from '../shared/structure';
 import {
@@ -39,6 +44,9 @@ import type { ExportRequest, ProjectMedia } from '../shared/api-types';
  * - contextIsolation: true、sandbox: true、nodeIntegration: false、webSecurity: true。
  * - 禁止远程导航与任意新窗口；CSP 由 index.html 的 meta 设置。
  * - 单实例锁（规格 8.5：应用单实例）+ 项目级 .lock（project-service）。
+ *   第二个实例退出，已有窗口聚焦，并接过命令行里的视频路径。
+ * - macOS `open-file` 与 Windows argv 都进入同一条「打开方式」队列，
+ *   渲染层收到的是选择令牌，不是绝对路径。
  *
  * 媒体读取（规格 12.5）：
  * - 注册 laipian-media: 为 standard + stream 特权协议，仅按已授权注册表
@@ -59,6 +67,12 @@ const IS_SMOKE =
 let mainWindow: BrowserWindow | null = null;
 let projectService: ProjectService | null = null;
 const windowsAllowedToClose = new WeakSet<BrowserWindow>();
+/** 系统「打开方式」尚未被渲染层取走的请求。 */
+let pendingExternal: ExternalVideoOpen | null = null;
+/** 窗口已加载时可立刻推送；加载中则等 did-finish-load。 */
+let deliverExternal: (() => void) | null = null;
+/** bootstrap 完成前不要因 open-file 再开一个窗口。 */
+let appBooted = false;
 
 // 必须在 app ready 之前注册自定义协议特权（Electron 要求）。
 protocol.registerSchemesAsPrivileged([
@@ -158,6 +172,75 @@ function createWindow(): BrowserWindow {
 
   return win;
 }
+
+function publishExternal(payload: ExternalVideoOpen): void {
+  pendingExternal = payload;
+  deliverExternal?.();
+}
+
+function consumePendingExternal(): ExternalVideoOpen | null {
+  // 不在读取时清掉：开发模式 StrictMode 会重挂载渲染层，需要能再读到同一次打开。
+  // 新的文件会覆盖这一条。
+  return pendingExternal;
+}
+
+function attachExternalOpenDelivery(win: BrowserWindow): void {
+  const send = (): void => {
+    if (pendingExternal === null || win.isDestroyed()) {
+      return;
+    }
+    win.webContents.send(IPC_CHANNELS.appOpenVideo, pendingExternal);
+  };
+  win.webContents.on('did-finish-load', send);
+  deliverExternal = () => {
+    if (win.isDestroyed() || win.webContents.isLoading()) {
+      return;
+    }
+    send();
+  };
+}
+
+function focusMainWindow(): void {
+  if (!appBooted) {
+    return;
+  }
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    mainWindow = createWindow();
+    attachExternalOpenDelivery(mainWindow);
+    return;
+  }
+  if (mainWindow.isMinimized()) {
+    mainWindow.restore();
+  }
+  if (!mainWindow.isVisible()) {
+    mainWindow.show();
+  }
+  mainWindow.focus();
+}
+
+async function isExistingVideoFile(filePath: string): Promise<boolean> {
+  try {
+    const info = await fsStat(filePath);
+    return info.isFile();
+  } catch {
+    return false;
+  }
+}
+
+function logOpenWith(message: string): void {
+  process.stderr.write(`${message}\n`);
+}
+
+/** 冒烟模式不接「打开方式」，避免和正式实例或探测流程互相影响。 */
+const externalOpen: ExternalVideoOpenCoordinator | null = IS_SMOKE
+  ? null
+  : createExternalVideoOpenCoordinator({
+      cwd: process.cwd(),
+      now: () => Date.now(),
+      existsFile: isExistingVideoFile,
+      describeVideo: describeVideoSelection,
+      deliver: publishExternal,
+    });
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => {
@@ -850,9 +933,31 @@ async function bootstrap(): Promise<void> {
       windowsAllowedToClose.add(win);
       setImmediate(() => win.close());
     },
+    consumePendingOpenVideo: consumePendingExternal,
   });
 
   mainWindow = createWindow();
+  if (externalOpen) {
+    attachExternalOpenDelivery(mainWindow);
+  }
+  appBooted = true;
+  if (externalOpen) {
+    externalOpen.enqueueArgv(process.argv, process.cwd());
+    externalOpen.start();
+    // 打包后的 Windows（含 ZIP 直出）补登记「打开方式」。
+    // Squirrel 安装/卸载事件在创建窗口前已经处理过，这里是幂等补写。
+    if (process.platform === 'win32' && app.isPackaged) {
+      setTimeout(() => {
+        try {
+          applyWindowsFileAssociationsSync('install', process.execPath, logOpenWith);
+        } catch (error) {
+          logOpenWith(
+            `[open-with] 文件关联登记失败：${error instanceof Error ? error.message : String(error)}`,
+          );
+        }
+      }, 0);
+    }
+  }
   if (IS_SMOKE) {
     try {
       await runSmoke(mainWindow);
@@ -875,6 +980,12 @@ const squirrelHandled =
     spawn: spawnUpdateExe,
     quit: (code) => app.exit(code),
     logger: (message) => process.stderr.write(`${message}\n`),
+    onInstall: () => {
+      applyWindowsFileAssociationsSync('install', process.execPath, logOpenWith);
+    },
+    onUninstall: () => {
+      applyWindowsFileAssociationsSync('uninstall', process.execPath, logOpenWith);
+    },
   });
 
 // 与 Squirrel 生成的 AppUserModelId 保持一致（任务栏归组 / 通知 / 更新识别）。
@@ -890,13 +1001,16 @@ if (squirrelHandled) {
   if (!gotSingleInstanceLock) {
     app.quit();
   } else {
-    app.on('second-instance', () => {
-      if (mainWindow) {
-        if (mainWindow.isMinimized()) {
-          mainWindow.restore();
-        }
-        mainWindow.focus();
-      }
+    app.on('second-instance', (_event, argv, workingDirectory) => {
+      focusMainWindow();
+      externalOpen?.enqueueArgv(argv, workingDirectory || process.cwd());
+    });
+
+    // macOS「打开方式」在 ready 之前就会发 open-file，必须尽早监听。
+    app.on('open-file', (event, filePath) => {
+      event.preventDefault();
+      focusMainWindow();
+      externalOpen?.enqueuePath(filePath);
     });
 
     void app.whenReady().then(bootstrap);
@@ -904,6 +1018,9 @@ if (squirrelHandled) {
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) {
         mainWindow = createWindow();
+        if (externalOpen) {
+          attachExternalOpenDelivery(mainWindow);
+        }
       }
     });
 

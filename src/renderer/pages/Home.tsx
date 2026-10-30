@@ -4,7 +4,7 @@ import { formatTimeMs } from '@shared/time';
 import { formatRelativeTime } from '../lib/format';
 import { NewProjectDialog } from '../components/NewProjectDialog';
 import { BrandMark } from '../components/BrandMark';
-import type { NewProjectCreatedInfo } from '../components/NewProjectDialog';
+import type { ExternalVideoSeed, NewProjectCreatedInfo } from '../components/NewProjectDialog';
 import { RenameProjectDialog } from '../components/RenameProjectDialog';
 import type { RecentProjectsController } from '../hooks/useRecentProjects';
 import { feedbackStore } from '../feedback/instance';
@@ -52,6 +52,10 @@ export interface HomeProps {
    * 0 或缺省时不触发。
    */
   openCreateRequest?: number;
+  /** 系统「打开方式」带来的视频；出现时打开新建弹窗并预填。 */
+  externalVideo?: ExternalVideoSeed | null;
+  /** 用户关掉新建弹窗且没有创建项目。 */
+  onExternalVideoDismissed?: () => void;
 }
 
 /** 状态徽标中文文案（规格 2.2 / 2.4 状态推导）。 */
@@ -275,6 +279,8 @@ export function Home({
   onOpenProject,
   onRelocateSource,
   onRebuildThumbnails,
+  externalVideo = null,
+  onExternalVideoDismissed,
 }: HomeProps) {
   const [query, setQuery] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
@@ -289,6 +295,14 @@ export function Home({
     }
     setCreateOpen(true);
   }, [openCreateRequest]);
+
+  // 系统「打开方式」：打开新建弹窗。视频预填由弹窗根据 seedVersion 完成。
+  useEffect(() => {
+    if (externalVideo === null) {
+      return;
+    }
+    setCreateOpen(true);
+  }, [externalVideo]);
 
   const projects = recent.state.phase === 'ready' ? recent.state.projects : [];
   const visibleProjects = useMemo(
@@ -554,8 +568,13 @@ export function Home({
       <NewProjectDialog
         isOpen={createOpen}
         hasApi={hasApi}
+        seedVideo={externalVideo?.video ?? null}
+        seedVersion={externalVideo?.version ?? 0}
         onClose={() => {
           setCreateOpen(false);
+          if (externalVideo !== null) {
+            onExternalVideoDismissed?.();
+          }
         }}
         onCreated={onProjectCreated}
       />

@@ -92,6 +92,15 @@ export interface VideoPickResult {
   height: number | null;
 }
 
+/**
+ * 系统「打开方式」或命令行打开本地视频的结果。
+ * ready 与 dialog.pickVideoFile() 成功时的形态相同（令牌 + 元信息，无绝对路径）。
+ * rejected 的 message 只含文件名。
+ */
+export type ExternalVideoOpen =
+  | { status: 'ready'; video: VideoPickResult }
+  | { status: 'rejected'; fileName: string; message: string };
+
 /* ------------------------------------------------------------------ */
 /* project.json 结构契约（规格 11.2）                                    */
 /* ------------------------------------------------------------------ */
@@ -725,11 +734,21 @@ export interface LaipianApi {
     onCloseRequested(listener: () => void): () => void;
     /** renderer 确认保存成功后，允许 main 真正关闭窗口。 */
     confirmClose(): Promise<Result<null>>;
+    /**
+     * 系统「打开方式」或命令行带来的本地视频。
+     * 与 pickVideoFile() 一样只给出令牌和元信息，由新建项目弹窗接手。
+     */
+    onOpenVideo(listener: (payload: ExternalVideoOpen) => void): () => void;
+    /**
+     * 读取最近一次系统打开请求（窗口加载完成前可能已经到达）。
+     * 重复读取返回同一条，直到有更新的文件覆盖它；没有请求时 data 为 null。
+     */
+    consumePendingOpenVideo(): Promise<Result<ExternalVideoOpen | null>>;
   };
   /** 系统文件/目录选择入口，全部返回一次性令牌；用户取消返回 data: null。 */
   dialog: {
     /**
-     * 选择单条视频：.mp4 .mov .m4v .webm .mkv（规格 10.1）。
+     * 选择单条视频：.mp4 .mov .m4v .webm .mkv（规格 10.1，与系统打开方式相同）。
      * 返回令牌 + 视频元信息（名称/大小/时长/画面比例），供新建弹窗预览。
      */
     pickVideoFile(): Promise<Result<VideoPickResult | null>>;

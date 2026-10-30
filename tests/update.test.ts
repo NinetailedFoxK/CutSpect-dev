@@ -275,6 +275,55 @@ describe('Squirrel 启动参数处理', () => {
     expect(resolveUpdateExePath(exePath)).toBe(path.resolve('root', 'laipian-tai', 'Update.exe'));
   });
 
+  it('安装登记打开方式，卸载移除；登记失败仍退出', () => {
+    const calls: string[] = [];
+    const installed = handleSquirrelStartup({
+      argv: ['--squirrel-install'],
+      execPath: path.join('root', 'app.exe'),
+      spawn: () => Promise.resolve(),
+      quit: () => undefined,
+      onInstall: () => {
+        calls.push('install');
+      },
+      onUninstall: () => {
+        calls.push('uninstall');
+      },
+    });
+    expect(installed).toBe(true);
+    expect(calls).toEqual(['install']);
+
+    calls.length = 0;
+    const removed = handleSquirrelStartup({
+      argv: ['--squirrel-uninstall'],
+      execPath: path.join('root', 'app.exe'),
+      spawn: () => Promise.resolve(),
+      quit: () => undefined,
+      onInstall: () => {
+        calls.push('install');
+      },
+      onUninstall: () => {
+        calls.push('uninstall');
+      },
+    });
+    expect(removed).toBe(true);
+    expect(calls).toEqual(['uninstall']);
+
+    let quitCalled = false;
+    const updated = handleSquirrelStartup({
+      argv: ['--squirrel-updated'],
+      execPath: path.join('root', 'app.exe'),
+      spawn: () => Promise.resolve(),
+      quit: () => {
+        quitCalled = true;
+      },
+      onInstall: () => {
+        throw new Error('reg failed');
+      },
+    });
+    expect(updated).toBe(true);
+    expect(quitCalled).toBe(true);
+  });
+
   it('首次运行不接管启动（应用正常显示）', () => {
     let quitCalled = false;
     const handled = handleSquirrelStartup({

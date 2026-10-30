@@ -253,6 +253,8 @@ function DemoApp() {
       app: {
         onCloseRequested: () => () => undefined,
         confirmClose: async () => ok(null),
+        onOpenVideo: () => () => undefined,
+        consumePendingOpenVideo: async () => ok(null),
       },
       dialog: {
         // 对象形态（推荐给集成阶段的 pick* 返回值契约）：token + 元信息。

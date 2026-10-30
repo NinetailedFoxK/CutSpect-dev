@@ -1,12 +1,12 @@
 import { BrowserWindow, dialog, ipcMain } from 'electron';
 import type { IpcMainInvokeEvent, OpenDialogOptions } from 'electron';
-import { stat } from 'node:fs/promises';
 import path from 'node:path';
 import { z } from 'zod';
 import { err, ok } from '../shared/api-types';
 import type {
   AppSettings,
   ExportRequest,
+  ExternalVideoOpen,
   FileSelectionKind,
   FileSelectionToken,
   Result,
@@ -18,6 +18,8 @@ import type { IpcInvokeChannel } from '../shared/ipc-channels';
 import { buildMediaUrl } from '../shared/media-url';
 import { projectSnapshotSchema } from '../shared/schema';
 import { consumeSelection, registerSelection } from './file-selection';
+import { describeVideoSelection } from './video-pick';
+import { VIDEO_EXTENSIONS } from '../shared/video-extensions';
 import { createCompatibleCopy } from './services/compatible-copy-service';
 import { probeFile } from './services/ffmpeg';
 import { getFramePreview } from './services/frame-service';
@@ -49,6 +51,8 @@ export interface IpcDeps {
   settings: SettingsService;
   updates: UpdateService;
   allowWindowClose(event: IpcMainInvokeEvent): void;
+  /** 读取最近一次系统「打开方式」请求；没有则为 null。重复读取返回同一条。 */
+  consumePendingOpenVideo(): ExternalVideoOpen | null;
 }
 
 /* ------------------------------------------------------------------ */
@@ -56,9 +60,6 @@ export interface IpcDeps {
 /* ------------------------------------------------------------------ */
 
 const DEV_SERVER_URL = process.env.LAIPIAN_DEV_SERVER_URL ?? 'http://127.0.0.1:5173';
-
-/** 视频选择器允许的扩展名（规格 10.1：扩展名仅用于筛选，实际由 ffprobe 检查）。 */
-const VIDEO_EXTENSIONS = ['mp4', 'mov', 'm4v', 'webm', 'mkv'] as const;
 
 /** 只信任本应用渲染层（file:// 生产或 127.0.0.1:5173 dev）发起的调用。 */
 function isTrustedSender(event: IpcMainInvokeEvent): boolean {
@@ -134,32 +135,7 @@ async function pickVideoFile(
   if (sourcePath === undefined) {
     return ok(null);
   }
-  const token = registerSelection('video-file', paths);
-  // 附带元信息供新建弹窗预览：大小来自 stat（必然可读），时长/画面比例
-  // 来自 ffprobe（best-effort，失败置 null，不阻断选择——导入时再完整探测）。
-  let sizeBytes: number | null = null;
-  try {
-    sizeBytes = (await stat(sourcePath)).size;
-  } catch {
-    sizeBytes = null;
-  }
-  let durationMs: number | null = null;
-  let width: number | null = null;
-  let height: number | null = null;
-  const probed = await probeFile(sourcePath);
-  if (probed.ok) {
-    durationMs = probed.data.durationMs;
-    width = probed.data.width;
-    height = probed.data.height;
-  }
-  return ok({
-    token,
-    fileName: path.basename(sourcePath),
-    sizeBytes,
-    durationMs,
-    width,
-    height,
-  });
+  return ok(await describeVideoSelection(sourcePath));
 }
 
 async function pickProjectDir(
@@ -361,6 +337,10 @@ export function registerIpcHandlers(deps: IpcDeps): void {
     deps.allowWindowClose(event);
     return ok(null);
   });
+
+  registerHandler(IPC_CHANNELS.appConsumePendingOpenVideo, z.void(), async () =>
+    ok(deps.consumePendingOpenVideo()),
+  );
 
   /* 自动更新（公开更新源）：只暴露状态、手动检查与用户确认后的重启安装。 */
   registerHandler(IPC_CHANNELS.updateGetState, z.void(), async () => ok(updates.getState()));
