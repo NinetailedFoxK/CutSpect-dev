@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import type { IpcRendererEvent } from 'electron';
-import type { LaipianApi, TaskEvent } from '../shared/api-types';
+import type { ExternalVideoOpen, LaipianApi, TaskEvent } from '../shared/api-types';
 import type { UpdateState } from '../shared/update';
 import { IPC_CHANNELS } from '../shared/ipc-channels';
 import type { IpcInvokeChannel } from '../shared/ipc-channels';
@@ -27,6 +27,14 @@ const api: LaipianApi = {
       return () => ipcRenderer.removeListener(IPC_CHANNELS.appCloseRequested, wrapped);
     },
     confirmClose: () => invoke(IPC_CHANNELS.appConfirmClose),
+    onOpenVideo(listener: (payload: ExternalVideoOpen) => void): () => void {
+      const wrapped = (_event: IpcRendererEvent, payload: ExternalVideoOpen): void => {
+        listener(payload);
+      };
+      ipcRenderer.on(IPC_CHANNELS.appOpenVideo, wrapped);
+      return () => ipcRenderer.removeListener(IPC_CHANNELS.appOpenVideo, wrapped);
+    },
+    consumePendingOpenVideo: () => invoke(IPC_CHANNELS.appConsumePendingOpenVideo),
   },
   dialog: {
     pickVideoFile: () => invoke(IPC_CHANNELS.dialogPickVideoFile),

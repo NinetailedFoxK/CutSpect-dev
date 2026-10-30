@@ -45,6 +45,12 @@ export interface NewProjectCreatedInfo {
   source: ImportSourceMeta | null;
 }
 
+/** 系统「打开方式」带入新建弹窗的视频。version 每来一次新文件就加一。 */
+export interface ExternalVideoSeed {
+  version: number;
+  video: VideoPickResult;
+}
+
 export interface NewProjectDialogProps {
   isOpen: boolean;
   /** window.laipian 是否存在（浏览器预览模式为 false，全部选择按钮禁用）。 */
@@ -52,6 +58,12 @@ export interface NewProjectDialogProps {
   onClose: () => void;
   /** projects.create 成功：切换到导入页。 */
   onCreated: (info: NewProjectCreatedInfo) => void;
+  /**
+   * 系统「打开方式」已选好的视频。seedVersion 变化时预填，
+   * 等同用户刚在选择器里选中该文件（仍需确认保存位置）。
+   */
+  seedVideo?: VideoPickResult | null;
+  seedVersion?: number;
 }
 
 interface PickedSelection {
@@ -97,7 +109,14 @@ function emptySelection(token: FileSelectionToken): PickedSelection {
   return { token, label: null, sizeBytes: null, durationMs: null, width: null, height: null };
 }
 
-export function NewProjectDialog({ isOpen, hasApi, onClose, onCreated }: NewProjectDialogProps) {
+export function NewProjectDialog({
+  isOpen,
+  hasApi,
+  onClose,
+  onCreated,
+  seedVideo = null,
+  seedVersion = 0,
+}: NewProjectDialogProps) {
   const [source, setSource] = useState<PickedSelection | null>(null);
   const [destination, setDestination] = useState<PickedSelection | null>(null);
   const [name, setName] = useState('');
@@ -130,6 +149,18 @@ export function NewProjectDialog({ isOpen, hasApi, onClose, onCreated }: NewProj
       videoButtonRef.current?.focus();
     }
   }, [isOpen]);
+
+  // 系统「打开方式」：预填视频与项目名，保存位置仍由用户确认。
+  useEffect(() => {
+    if (seedVersion === 0 || seedVideo === null) {
+      return;
+    }
+    const meta = extractPickMeta(seedVideo);
+    setSource(meta);
+    setNameTouched(false);
+    setFormError(null);
+    setName(meta.label !== null ? stripExtension(meta.label) : '');
+  }, [seedVersion, seedVideo]);
 
   const pickVideoFile = async (): Promise<void> => {
     const api = window.laipian;

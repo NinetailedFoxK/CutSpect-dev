@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type {
+  ExternalVideoOpen,
   LaipianError,
   OpenedProject,
   ProjectSnapshot,
@@ -13,7 +14,7 @@ import { ImportPage } from './pages/ImportPage';
 import { Editor } from './pages/Editor';
 import type { ProjectContentPatch, SaveState } from './pages/Editor';
 import { useRecentProjects } from './hooks/useRecentProjects';
-import type { NewProjectCreatedInfo, ImportSourceMeta } from './components/NewProjectDialog';
+import type { ExternalVideoSeed, NewProjectCreatedInfo, ImportSourceMeta } from './components/NewProjectDialog';
 import { FeedbackHost } from './components/FeedbackHost';
 import { TooltipHost } from './components/TooltipHost';
 import { TaskCenter } from './components/TaskCenter';
@@ -24,6 +25,13 @@ import { currentAdapter } from '../platform/common';
 import { UpdateBanner } from './components/UpdateBanner';
 
 const PLATFORM = currentAdapter();
+
+/**
+ * 系统「打开方式」带来的视频。放在模块里，是为了熬过开发模式 StrictMode 的重挂载：
+ * 组件状态会被清掉，但这条选择还没被用户取消或创建。
+ */
+let rememberedExternalVideo: ExternalVideoSeed | null = null;
+const seenExternalOpenKeys = new Set<string>();
 
 /**
  * 应用外壳与页面状态机（阶段 A 闭环 + 阶段 B 曲线编辑）。
@@ -329,9 +337,18 @@ export function App() {
   const [stage, setStage] = useState<AppStage>({ page: 'home' });
   /** 递增计数：Home 监听变化后打开新建弹窗（导入失败"重新导入"用）。 */
   const [createRequest, setCreateRequest] = useState(0);
+  /** 系统「打开方式」带入的视频；用户取消或创建项目后清空。 */
+  const [externalVideo, setExternalVideo] = useState<ExternalVideoSeed | null>(
+    () => rememberedExternalVideo,
+  );
   const recent = useRecentProjects();
   const stageRef = useRef(stage);
   stageRef.current = stage;
+
+  const clearExternalVideo = useCallback(() => {
+    rememberedExternalVideo = null;
+    setExternalVideo(null);
+  }, []);
 
   useEffect(() => {
     const api = window.laipian;
@@ -341,6 +358,54 @@ export function App() {
         void api.app.confirmClose();
       }
     });
+  }, []);
+
+  // 系统「打开方式」/ 命令行视频：与应用内选择器一样进入新建项目，不直接改时间线。
+  useEffect(() => {
+    const api = window.laipian;
+    if (!api) return undefined;
+    const handle = (payload: ExternalVideoOpen): void => {
+      const key =
+        payload.status === 'ready'
+          ? `ready:${payload.video.token}`
+          : `rejected:${payload.fileName}:${payload.message}`;
+      if (payload.status === 'rejected') {
+        if (seenExternalOpenKeys.has(key)) {
+          return;
+        }
+        seenExternalOpenKeys.add(key);
+        feedbackStore.pushToast({
+          kind: 'error',
+          message: payload.message,
+          durationMs: 8000,
+        });
+        return;
+      }
+      if (!seenExternalOpenKeys.has(key)) {
+        seenExternalOpenKeys.add(key);
+        rememberedExternalVideo = {
+          version: (rememberedExternalVideo?.version ?? 0) + 1,
+          video: payload.video,
+        };
+        if (stageRef.current.page !== 'home') {
+          feedbackStore.pushToast({
+            kind: 'info',
+            message: `已选择「${payload.video.fileName}」。回到项目库后将打开新建项目，请确认保存位置。`,
+            durationMs: 8000,
+          });
+        }
+      }
+      if (rememberedExternalVideo !== null) {
+        setExternalVideo(rememberedExternalVideo);
+      }
+    };
+    const unsubscribe = api.app.onOpenVideo(handle);
+    void api.app.consumePendingOpenVideo().then((result) => {
+      if (result.ok && result.data !== null) {
+        handle(result.data);
+      }
+    });
+    return unsubscribe;
   }, []);
 
   // 全局后台任务订阅：任务中心跨页面展示所有项目的进度/结果（规格 11）。
@@ -543,7 +608,12 @@ export function App() {
           canOpenProject={hasElectronApi}
           openProjectDisabledReason="需要桌面运行环境才能从最近列表打开项目"
           openCreateRequest={createRequest}
-          onProjectCreated={handleProjectCreated}
+          externalVideo={externalVideo}
+          onExternalVideoDismissed={clearExternalVideo}
+          onProjectCreated={(info) => {
+            clearExternalVideo();
+            handleProjectCreated(info);
+          }}
           onProjectOpened={handleProjectOpened}
           onOpenProject={(project) => void openProjectById(project.projectId, project.name)}
           onRelocateSource={(project) => void handleRelocateSource(project)}

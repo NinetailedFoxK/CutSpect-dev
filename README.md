@@ -103,6 +103,7 @@ src/
 | 内部程序名 / 可执行文件 | CutSpect.app | `laipian-tai`（`laipian-tai.exe`） |
 | 界面显示名 | 「拉片台」（一致） | 「拉片台」（一致） |
 | 安装包 | DMG + ZIP（仅 darwin 产出） | Squirrel Setup.exe + ZIP（仅 win32 产出） |
+| 打开方式 | Info.plist 文档类型（不设为默认播放器） | 安装时登记 HKCU「打开方式」（不改默认关联） |
 
 快捷键在两端的绑定完全共用（`mod` 在 macOS 映射 Command、Windows 映射 Ctrl）；
 `Control + 滚轮` 缩放时间线、`Shift + 滚轮` 横向移动，`Space`/`J K L`/方向键/`Q W E`/
@@ -140,6 +141,7 @@ renderer 只通过 `window.laipian`（preload 注入）访问主进程能力，
 - `laipian-media:` 注册为 standard+stream 协议，URL 只含 `projectId/mediaId/kind`，
   真实路径登记在 main 侧注册表（未注册 → 403），支持 GET/HEAD + Range。
 - 单实例锁 + 项目级 `.lock`；preload 不暴露 fs/shell/ipcRenderer 本体。
+  应用已在运行时，再次用「打开方式」或命令行打开视频会聚焦现有窗口，并把该文件带入新建项目（渲染层只收到选择令牌，不收到绝对路径）。
 - IPC 来源白名单（仅本应用渲染层）+ zod 参数校验。
 - 原子保存（同目录临时文件 → fsync → rename），并对 Windows 的
   `EPERM`/`EACCES`/`EBUSY` 做有限重试。

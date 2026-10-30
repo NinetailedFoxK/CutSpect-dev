@@ -2,6 +2,7 @@ import { MakerZIP } from '@electron-forge/maker-zip';
 import { MakerDMG } from '@electron-forge/maker-dmg';
 import { MakerSquirrel } from '@electron-forge/maker-squirrel';
 import type { ForgeConfig } from '@electron-forge/shared-types';
+import { macFileAssociationExtendInfo } from './src/shared/video-extensions';
 import { execFile } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { promisify } from 'node:util';
@@ -60,6 +61,10 @@ const config: ForgeConfig = {
       unpack: '**/node_modules/{ffmpeg-static,@ffprobe-installer/**}/**',
     },
     icon: 'assets/icon',
+    // macOS「打开方式」：Info.plist 文档类型。Alternate，不抢默认播放器。
+    // Windows 不走 Info.plist；安装/启动时由主进程写 HKCU「打开方式」（不改默认关联）。
+    // 当前没有 Linux maker，因此不生成 .desktop。
+    extendInfo: macFileAssociationExtendInfo(),
     // 构建时注入的更新配置（含公开发布仓库名）：放 resources 供运行时读取。
     extraResource: hasUpdateConfig ? ['build/update-config.json'] : [],
     // Windows 内部程序名与可执行文件使用稳定英文标识（界面仍显示「拉片台」）。

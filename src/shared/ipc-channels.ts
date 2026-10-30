@@ -58,6 +58,8 @@ export const IPC_CHANNELS = {
 
   /* 应用窗口关闭：先让 renderer 刷新项目保存队列，再由 main 真正关闭。 */
   appConfirmClose: 'app:confirm-close',
+  /** 读取最近一次「打开方式」请求（可重复读，直到被更新的文件覆盖）。 */
+  appConsumePendingOpenVideo: 'app:consume-pending-open-video',
 
   /* 自动更新（公开更新源；仅暴露状态，不含任何 Token / 私有地址） */
   updateGetState: 'update:get-state',
@@ -67,6 +69,8 @@ export const IPC_CHANNELS = {
   /* main → renderer 单向事件：后台任务进度/状态/取消推送 */
   taskEvent: 'task:event',
   appCloseRequested: 'app:close-requested',
+  /** main → renderer：系统「打开方式」或命令行带来的本地视频。 */
+  appOpenVideo: 'app:open-video',
   updateEvent: 'update:event',
 } as const;
 
@@ -75,6 +79,7 @@ export type IpcInvokeChannel = Exclude<
   (typeof IPC_CHANNELS)[keyof typeof IPC_CHANNELS],
   | typeof IPC_CHANNELS.taskEvent
   | typeof IPC_CHANNELS.appCloseRequested
+  | typeof IPC_CHANNELS.appOpenVideo
   | typeof IPC_CHANNELS.updateEvent
 >;
 
@@ -82,4 +87,5 @@ export type IpcInvokeChannel = Exclude<
 export type IpcEventChannel =
   | typeof IPC_CHANNELS.taskEvent
   | typeof IPC_CHANNELS.appCloseRequested
+  | typeof IPC_CHANNELS.appOpenVideo
   | typeof IPC_CHANNELS.updateEvent;
